@@ -16,23 +16,20 @@ use HTML::Element;
 
 @ISA = qw(HTML::Element);
 
-$VERSION = '1.03';
+$VERSION = '1.04';
 
 ### Begin Positional extension ###
 
 sub addr {
   my $self = shift;
-  return undef unless $self->parent;
-  # Unfortunate kludge due to new HTML::Element behavior with traverse()
-  my $pmask;
-  eval { $pmask = $self->parent->mask };
-  my $sibs = $pmask ? $self->parent->{_backup_content} : $self->parent->content;
-  my $addr;
-  foreach (0..$#{$sibs}) {
-    $addr = $_;
-    last if $sibs->[$_] eq $self;
+  my $p = $self->parent;
+  return undef unless $p;
+  my @sibs = $p->content_list;
+  my $a;
+  foreach (0..$#sibs) {
+    return $_ if $sibs[$_] eq $self;
   }
-  $addr;
+  undef;
 }
 
 sub position {
@@ -41,14 +38,14 @@ sub position {
   # the top when a) there is no parent, or b) the
   # parent is some HTML::Element unable to report
   # it's position.
-  my $self = shift;
-  my($addr, @pp);
-  # Only grab addr if we know what it means and have one.
-  eval { $addr = $self->addr; };
-  defined $addr || return ();
-  # Only grab parent position if parent is able to report.
-  eval { @pp = $self->parent->position; };
-  @pp ? (@pp,$addr) : $addr;
+  my $p = shift;
+  my @pos;
+  while ($p) {
+    my $a = $p->addr;
+    unshift(@pos, $a) if defined $a;
+    $p = $p->parent;
+  }
+  @pos;
 }
 
 sub depth {
@@ -59,14 +56,6 @@ sub depth {
     ++$depth;
   }
   $depth;
-}
-
-sub delete_attr {
-  my $self = shift;
-  my $attr = lc shift;
-  my $old = $self->{$attr};
-  delete $self->{$attr};
-  $old;
 }
 
 # Handy debugging tools
@@ -96,52 +85,112 @@ sub clone {
   # HTML::Element tree across multiple nodes, just
   # a copy of it - since HTML::Element nodes only
   # recognize one parent.
+  #
+  # Note: The new cloning functionality of HTML::Element is
+  # insufficent for our purposes. Syntax aside, the native
+  # clone() does not clone the element globs associated with
+  # a table...the globs continue to affect the original element
+  # structure.
   my $self = shift;
   my @args = @_;
-  my($clone, $node, @clones);
+
   @args || push(@args, $self);
+  my($clone, $node, @clones);
   my($VAR1, $VAR2, $VAR3);
-  $Data::Dumper::Purity  = 1;
+  $Data::Dumper::Purity = 1;
   foreach $node (@args) {
+    _cloning($node, 1);
     eval(Dumper($node));
     carp("$@ $node") if $@;
-    $clone = $VAR1;
-    push(@clones, $clone);
+    _cloning($node, 0);
+    _cloning($VAR1, 0);
+    # Retie the watchdogs
+    $VAR1->traverse(sub {
+		      my($node, $startflag) = @_;
+		      return unless $startflag;
+		      if ($node->can('watchdog')) {
+			$node->watchdog(1);
+			$node->watchdog->mask(1) if $node->mask;
+		      }
+		      1;
+		    }, 'ignore_text');
+    push(@clones, $VAR1);
   }
   $#clones ? @clones : $clones[0];
 }
+
+sub _cloning {
+  # Ugh. We need to do this when we clone and happen to be masked,
+  # otherwise masked content will not make it into the clone.
+  my $node = shift;
+  if (@_) {
+    if ($_[0]) {
+      $node->traverse(sub {
+			my($node, $startflag) = @_;
+			return unless $startflag;
+			$node->_clone_state(1) if $node->can('_clone_state');
+			1;
+		      }, 'ignore_text');
+    }
+    else {
+      $node->traverse(sub {
+			my($node, $startflag) = @_;
+			return unless $startflag;
+			$node->_clone_state(0) if $node->can('_clone_state');
+			1;
+		      }, 'ignore_text');      
+    }
+  }
+  $node->can('watchdog') && $node->watchdog ? $node->watchdog->cloning : 0;
+}
+
+sub _clone_state {
+  my($self, $state) = @_;
+  return 0 unless $self->watchdog;
+  if (defined $state) {
+    if ($state) {
+      $self->watchdog->cloning(1);
+    }
+    else {
+      $self->watchdog->cloning(0);
+    }
+  }
+  $self->watchdog->cloning;
+}
+
 
 ### End Cloner extension ###
 
 ### Begin Maskable extension ###
 
 sub mask {
-  # Set/Return masking.  If masked, play dead.
   my($self, $mode) = @_;
   if (defined $mode) {
-    # Unfortunately can have multiple maskings, so we keep count.
-    if ($mode == 0) {
-      if ($self->{_mask} == 1) {
-	# Wake back up (make sure and orphan any content we picked
-	# up in the meantime)
-	foreach (grep(ref $_, @{$self->{_content}})) {
-	  $_->{_parent} = undef if $_->{_parent} eq $self;
-	}
-	@{$self->{_content}} = @{$self->{_backup_content}};
-      }
-      --$self->{_mask} unless $self->{_mask} <= 0;
-    }
-    else {
+    # We count modes since masking can come from overlapping
+    # influences, theoretically.
+    if ($mode) {
       if (! $self->{_mask}) {
-	# Play dead
-	@{$self->{_backup_content}} = @{$self->{_content}};
-	@{$self->{_content}} = ();
+	# deactivate (mask) content
+	$self->watchdog(1) unless $self->watchdog;
+	$self->watchdog->mask(1);
       }
       ++$self->{_mask};
     }
+    else {
+      --$self->{_mask} unless $self->{_mask} <= 0;
+      if (! $self->{_mask}) {
+	# activate (unmask) content
+	if ($self->watchdog_listref) {
+	  $self->watchdog->mask(0);
+	}
+	else {
+	  $self->watchdog(0);
+	}
+      }
+    }
   }
   $self->{_mask};
-}
+} 
 
 sub starttag {
   my $self = shift;
@@ -162,6 +211,8 @@ sub endtag {
 # we can't just override the content method because the
 # new traverse() implentation is playing directly wiht the data
 # structures rather than calling content().
+#
+# See below for the current solution: HTML::ElementSuper::TiedContent
 #
 # For the time being, I've kept the old code and commentary here:
 #
@@ -204,13 +255,13 @@ sub replace_content {
 ### Begin Wrapper extension ###
 
 sub wrap_content {
-  my $self = shift;
-  my $wrap = shift;
+  my($self, $wrap) = @_;
   my $content = $self->content;
   if (ref $content) {
     $wrap->push_content(@$content);
     @$content = ($wrap);
-  } else {
+  }
+  else {
     $self->push_content($wrap);
   }
   $wrap;
@@ -218,37 +269,223 @@ sub wrap_content {
 
 ### End Wrapper extension ###
 
+
+### Begin Watchdog extension ###
+
+sub watchdog_listref {
+  my $self = shift;
+  @_ ? $self->{_wa} = shift : $self->{_wa};
+}
+
+sub watchdog {
+  my $self = shift;
+  if (@_) {
+    if ($_[0]) {
+      # Install the watchdog hash
+      my $wa = shift;
+      if (ref $wa eq 'ARRAY') {
+	$self->watchdog_listref($wa);
+      }
+      else {
+	$wa = $self->watchdog_listref;
+      }
+      my $cr = $self->content;
+      my @content = @$cr;
+      @$cr = ();
+      $self->{_wd} = tie @$cr, 'HTML::ElementSuper::ContentWatchdog';
+      @$cr = @content;
+      $self->{_wd}->watchdog($wa) if ref $wa eq 'ARRAY';
+    }
+    else {
+      # Release the watchdog
+      my @content = $self->{_wd}->fetchall; # in case it's masked
+      my $cr = $self->content;
+      untie @$cr;
+      @$cr = @content;
+      delete $self->{_wd};
+    }
+  }
+  $self->{_wd};
+}
+
+### End Watchdog extension ###
+
 sub new {
   my $that = shift;
   my $class = ref($that) || $that;
-  my $self = new HTML::Element @_;
-  bless $self,$class;
+  my $self = $class->SUPER::new(@_);
+  # Grrr. content() is read only, and for various
+  # reasons I need to initialize this to an array ref.
   $self->{_content} = [];
-  $self->{_backup_content} = [];
+  bless $self,$class;
   $self;
 }
 
-# Argh. New HTML::Element traverse!
-sub insert_element       { shift->_switcharoo('insert_element', @_) }
-sub push_content         { shift->_switcharoo('push_content', @_) }
-sub unshift_content      { shift->_switcharoo('unshift_content', @_) }
-sub splice_content       { shift->_switcharoo('splice_content', @_) }
-sub replace_with_content { shift->_switcharoo('replace_with_content', @_) }
-sub delete_content       { shift->_switcharoo('delete_content', @_) }
+### Deprecated methods ###
 
-sub _switcharoo {
-  # This is only hear to get around the _content bug in the new HTML::Element
-  # for purposes of masking.
-  my $self = shift;
-  my $name = shift;
-  my $sname = "SUPER::$name";
-  return $self->$sname(@_) unless $self->mask;
-  my $c = $self->{_content};
-  $self->{_content} = $self->{_backup_content};
-  my @res = $self->$sname(@_);
-  $self->{_content} = $c;
-  wantarray ? @res : $res[$#res];
+sub delete_attr {
+  # Deprecated by new HTML::Element functionality.
+  # Should now use attr($attr, undef) for attribute deletions.
+  # Still returning the old value here for backwards compatability.
+  my($self, $attr) = @_;
+  $attr = lc $attr;
+  my $old = $self->attr($attr);
+  $self->attr($attr, undef);
+  $old;
 }
+
+### Temporary Overrides (until bugs fixed in HTML::Element) ###
+
+sub replace_with {
+  my $self = shift;
+  my $p = $self->parent;
+  $self->SUPER::replace_with(@_);
+  grep($_->parent($p), @_);
+  $self;
+}
+
+### Bag o kludgy tricks ###
+
+{
+  package HTML::ElementSuper::ContentWatchdog;
+
+  use strict;
+  use Carp;
+  use vars qw( @ISA );
+  use Tie::Array;
+  @ISA = qw( Tie::Array );
+
+  # I got tired of jumping through hoops dealing with the new HTML::Element
+  # semantics. Since I could no longer override traverse() I was having
+  # to go through all sorts of contortions to "hide" elements in the
+  # tree when masked. In a cohesive tree like HTML::ElementTable, this
+  # was still insufficient because globbed access to the masked elements
+  # still needed to be retained.
+  #
+  # The hoops in question involved either a) breaking containment
+  # all over the place, or b) overriding *all* content methods,
+  # or c) swapping in a doppleganger element for the masked element,
+  # which then involved overriding just about everything since
+  # the positional methods needed to look at the doppleganger, but
+  # everything else needed to look at the original.
+  #
+  # So here I provide a class for tying the content array and doing
+  # the right thing when masked. Note that starttag() and endtag()
+  # still need to be overridden, but this tied class should take care
+  # of traverse rifling through masked content.
+  #
+  # Note that all content manipulation works as expected, except for
+  # FETCH. This is intentional.
+  #
+  # Technically, this is not breaking containment since the content()
+  # method returns the content array reference. Even though this is
+  # a read-only method, we can still tie() over the array pointed to
+  # by the reference!
+  #
+  # See mask() for implementation.
+  #
+  # I'll probably go to programmer hell for this, but what the hey.
+  #
+  # UPDATE: Since I was already doing this for masking, I decided
+  # to to general content policing with the same mechanism, but only
+  # when requrested via the watchdog parameter, passed as a code
+  # reference. Alas, this meant a full implmentation rather than
+  # just subclassing Tie::StdArray and overriding FETCH().
+
+  # Object methods
+
+  sub fetchall { @{shift->{_array}} }
+
+  sub watchdog {
+    my($self, $classes_ref) = @_;
+    if ($classes_ref) {
+      $self->{watchdog} = {};
+      foreach (@$classes_ref) {
+	++$self->{watchdog}{$_};
+      }
+    }
+    $self->{watchdog};
+  }
+
+  sub permit {
+    my($self, @objects) = @_;
+    return 1 unless $self->{watchdog};
+    foreach (@objects) {
+      my $type = ref($_) || $_;
+      croak "Adoption of type $type, which is not of type " .
+	join(', ', sort keys %{$self->{watchdog}}) . "\n"
+	  unless $self->{watchdog}{$type};
+    }
+    1;
+  }
+
+  sub mask {
+    my $self = shift;
+    @_ ? $self->{mask} = shift : $self->{mask};
+  }
+
+  sub cloning {
+    my $self = shift;
+    @_ ? $self->{cloning} = shift : $self->{cloning};
+  }
+
+  # Tied array methods
+
+  sub TIEARRAY {
+    my $that = shift;
+    my $class = (ref $that) || $that;
+    my $self = {};
+    bless $self, $class;
+    %$self = @_;
+    $self->{_array} = [];
+    $self;
+  }
+
+  sub FETCH {
+    my($self, $k) = @_;
+    return if $self->{mask} && !$self->{cloning};
+    $self->{_array}[$k];
+  }
+
+  sub STORE {
+    my($self, $k, $v) = @_;
+    my $vc = ref $v;
+    $self->permit($v) if $self->{watchdog};
+    $self->{_array}[$k] = $v;
+  }
+
+  sub PUSH {
+    my $self = shift;
+    $self->permit(@_) if $self->{watchdog};
+    push(@{$self->{_array}}, @_);
+  }
+
+  sub UNSHIFT {
+    my $self = shift;
+    $self->permit(@_) if $self->{watchdog};
+    unshift(@{$self->{_array}}, @_);
+  }
+
+  sub SPLICE {
+    my($self, $offset, $length, @list) = @_;
+    if (@list && $self->{watchdog}) {
+      $self->permit(@list);
+    }
+    splice(@{$self->{_array}}, @_);
+  }
+
+  #### The rest of these are just native ops on the inner array.
+
+  sub FETCHSIZE { scalar @{shift->{_array}} }
+  sub STORESIZE {
+    my($self, $size) = @_;
+    $#{$self->{_array}} = $size - 1;
+  }
+  sub CLEAR {       @{shift->{_array}} = () }
+  sub POP   {   pop(@{shift->{_array}})     }
+  sub SHIFT { shift(@{shift->{_array}})     }
+
+} ### End HTML::ElementSuper::ContentWatchdog
 
 1;
 __END__

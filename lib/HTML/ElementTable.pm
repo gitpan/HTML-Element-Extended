@@ -4,35 +4,14 @@ use strict;
 use vars qw($VERSION @ISA $AUTOLOAD);
 use Carp;
 
-use HTML::ElementSuper;
 use HTML::ElementGlob;
 
-@ISA = qw(HTML::ElementSuper);
+@ISA = qw(HTML::ElementTable::Element);
 
-$VERSION = '1.02';
+$VERSION = '1.03';
 
 # Enforced adoption policy such that positional coords are untainted.
-my %Valid_Children;
-++$Valid_Children{'HTML::ElementTable::RowElement'};
-++$Valid_Children{'HTML::ElementTable::HeaderElement'};
-my $VC = join(', ',sort keys %Valid_Children);
-
-# In order to maintain the integrity of the table, we have to
-# police the content methods in the <TABLE> and <TR> elements.
-# This is because the table expects grid coordinates - since
-# each element reports it's own coordinates, superfluous
-# elements will screw that process up.
-#
-# Any new content related methods in the superclass should
-# be reflected here.
-
-my @Content_Methods = qw(
-			 push_content
-			 insert_element
-			 replace_content
-			 wrap_content
-			 );
-my $CM = join('|', @Content_Methods);
+my @Valid_Children = qw( HTML::ElementTable::RowElement );
 
 ##################
 # Native Methods #
@@ -50,7 +29,7 @@ sub extent {
     if $maxrow != $self->maxrow;
   
   # Hit columns
-  my @rows = $self->is_empty ? () : @{$self->content};
+  my @rows = $self->is_empty ? () : $self->content_list;
   if ($maxcol != $self->maxcol) {
     grep($self->_adjust_content($_, $maxcol, $self->maxcol), @rows);
   }
@@ -80,7 +59,7 @@ sub refresh {
 
   my $colcnt;
   my $maxcol = -1;
-  foreach $row (@{$self->content}) {
+  foreach $row ($self->content_list) {
     # New glob for each row, added to rows glob
     $p_row = $self->_rowglob;
     $p_row->alias($row);
@@ -94,7 +73,8 @@ sub refresh {
 	$p_col = $self->_colglob;
 	$self->_cols->glob_push_content($p_col);
 	++$maxcol;
-      } else {
+      }
+      else {
 	# Otherwise use the existing column glob
 	$p_col = $self->_cols->glob_content->[$colcnt];
       }
@@ -178,7 +158,6 @@ sub cell {
     if ($#{$r->glob_content} < $c || $c < 0) {
       croak "Cell ($r,$c) is out of range";
     }
-    $#{$r->glob_content} >= $c && $c >= 0 || next;
     push(@elements,$r->glob_content->[$c]);
   }
   return undef unless @elements;
@@ -274,59 +253,41 @@ sub _cellglob {
   $self->_glob('tr',@_);
 }
 
+sub rowspan_dispatch {
+  my $self = shift;
+  $self->_dimspan_dispatch('rowspan', @_);
+}
+
 sub colspan_dispatch {
-  # Dispatch for children to use to send notice of colspan changes
-  my($self,$row,$col,$span,$oldspan) = @_;
+  my $self = shift;
+  $self->_dimspan_dispatch('colspan', @_);
+}
+
+sub _dimspan_dispatch {
+  # Dispatch for children to use to send notice of span changes,
+  # in rows or columns.
+  my($self,$attr,$row,$col,$span) = @_;
   defined $row && defined $col || croak "Cell row and column required";
   defined $span || croak "Span setting required";
-  $span = 1 unless $span;
+  my $orth_attr = $attr eq 'colspan' ? 'rowspan' : 'colspan';
+  $span    = 1 unless $span;
+  my $oldspan = $self->cell($row,$col)->attr($attr);
   $oldspan = 1 unless $oldspan;
   return if $span == $oldspan;
-  my $rspan = $self->cell($row,$col)->attr('rowspan');
-  $rspan = 1 unless $rspan;
+  my $ospan = $self->cell($row,$col)->attr($orth_attr);
+  $ospan = 1 unless $ospan;
   # We are either masking or revealing
   my $mask = $span > $oldspan ? 1 : 0;
-  my($r,$c,$tmp);
-  if ($oldspan > $span) {
-    $tmp = $span; $span = $oldspan; $oldspan = $tmp;
-  }
-  foreach $c ($col + $oldspan .. $col + $span - 1) {
-    foreach $r ($row .. $row + $rspan - 1) {
-      next if $c == $col && $r == $row;
-      next unless $self->cell($r,$c);
-      $self->cell($r,$c)->mask($mask & $self->mask_mode);
+  ($span, $oldspan) = ($oldspan, $span) if $oldspan > $span;
+  my $tc;
+  my($dim,$odim) = $attr eq 'colspan' ? ($col,$row) : ($row,$col);
+  foreach my $d ($dim + $oldspan .. $dim + $span - 1) {
+    foreach my $o ($odim .. $odim + $ospan - 1) {
+      next if $d == $dim && $o == $odim;
+      $tc = $self->cell($attr eq 'colspan' ? ($o,$d) : ($d,$o)) || next;
+      $tc->mask($mask & $self->mask_mode);
     }
   }
-}
-
-sub rowspan_dispatch {
-  # Dispatch for children to use to send notice of rowspan changes
-  my($self,$row,$col,$span,$oldspan) = @_;
-  defined $row && defined $col || croak "Cell row and column required";
-  defined $span || croak "Span setting required";
-  $span = 1 unless $span;
-  $oldspan = 1 unless $oldspan;
-  return if $span == $oldspan;
-  my $cspan = $self->cell($row,$col)->attr('colspan');
-  $cspan = 1 unless $cspan;
-  my $mask = $span > $oldspan ? 1 : 0;
-  my($r,$c,$tmp);
-  if ($oldspan > $span) {
-    $tmp = $span; $span = $oldspan; $oldspan = $tmp;
-  }
-  foreach $r ($row + $oldspan .. $row + $span - 1) {
-    foreach $c ($col .. $col + $cspan - 1) {
-      next if $r == $row && $c == $col;
-      $self->cell($r,$c)->mask($mask & $self->mask_mode);
-    }
-  }
-}
-
-sub _orphan {
-  # Who's ugly and unwanted?
-  # Note that our pickiness excludes comment tags...ugh.
-  my $self = shift;
-  scalar grep(!$Valid_Children{ref $_},@_);
 }
 
 sub blank_fill {
@@ -365,14 +326,19 @@ sub new {
     $val = shift;
     if ($attr =~ /^maxrow/) {
       $maxrow = $val;
-    } elsif ($attr =~ /^maxcol/) {
+    }
+    elsif ($attr =~ /^maxcol/) {
       $maxcol = $val;
-    } else {
+    }
+    else {
       $e_attrs{$attr} = $val;
     }
   }
-  my $self = new HTML::ElementSuper 'table', %e_attrs;
+  my $self = $class->SUPER::new('table', %e_attrs);
   bless $self,$class;
+
+  # Content police for aggregate integrity
+  $self->watchdog(\@Valid_Children);
 
   # The tag choices for globs are arbitrary, but
   # these should at least make some sort of since
@@ -387,21 +353,6 @@ sub new {
   $self->extent($maxrow, $maxcol) if defined $maxrow || defined $maxcol;
 
   $self;
-}
-
-sub AUTOLOAD {
-  # Do a check for content control, pass along to super.
-  my $self = shift;
-  my $name = $AUTOLOAD;
-  $name =~ s/.*://;
-  return if $name =~ /^DESTROY/;
-  if ($name =~ /$CM/o) {
-    # Picky adoption
-    croak "Attempted adoption of something other than $VC"
-      if $self->_orphan($_[0]);
-  }
-  my $sname = "SUPER::$name";
-  $self->$sname(@_);
 }
 
 ################
@@ -428,9 +379,8 @@ sub AUTOLOAD {
   sub starttag {
     my $self = shift;
     my $spc = '';
-    if ($self->beautify) {
-      my @position = $self->position;
-      $spc = ' ' x @position;
+    if ($self->beautify && !$self->mask) {
+      $spc = ' ' x $self->depth;
       $spc = "\n$spc";
     }
     $spc .  $self->SUPER::starttag;
@@ -439,7 +389,7 @@ sub AUTOLOAD {
   sub new {
     my $that = shift;
     my $class = ref($that) || $that;
-    my $self = new HTML::ElementSuper @_;
+    my $self = $class->SUPER::new(@_);
     bless $self, $class;
     $self;
   }
@@ -450,7 +400,7 @@ sub AUTOLOAD {
 { package HTML::ElementTable::DataElement;
 
   use strict;
-  use vars qw( @ISA );
+  use vars qw( @ISA $AUTOLOAD );
 
   @ISA = qw(HTML::ElementTable::Element);
 
@@ -461,25 +411,24 @@ sub AUTOLOAD {
   sub attr {
     # Keep tabs on COLSPAN and ROWSPAN
     my $self = shift;
-    my($attr, $val) = map(lc $_, @_);
+    my $attr = lc $_[0];
+    my $val  = $_[1] if @_ >= 2;
     if (defined $val) {
       if ($attr eq 'colspan') {
-	$self->parent->colspan_dispatch($self->addr, $val, $self->attr($attr));
-      } elsif ($attr eq 'rowspan') {
-	$self->parent->rowspan_dispatch($self->addr, $val, $self->attr($attr));
+	$self->parent->colspan_dispatch($self->addr, $val);
+      } 
+      elsif ($attr eq 'rowspan') {
+	$self->parent->rowspan_dispatch($self->addr, $val);
       }
     }
-    $self->SUPER::attr(@_);
-  }
-
-  sub delete_attr {
-    # Keep tabs on spans, again.
-    my $self = shift;
-    my $attr = lc $_[0];
-    if ($attr eq 'colspan' || $attr eq 'rowspan') {
-      $self->attr($_[0], 0);
+    elsif (@_ >= 2) {
+      # Deleting an attr
+      if ($attr eq 'colspan' || $attr eq 'rowspan') {
+	# Make sure and dispatch zero value
+	$self->attr($attr, 0);
+      }   
     }
-    $self->SUPER::delete_attr(@_);
+    $self->SUPER::attr(@_);
   }
 
   sub blank_fill {
@@ -519,8 +468,8 @@ sub AUTOLOAD {
   # Ooo-glay!
   sub starttag {
     my $self = shift;
-    my $c = $self->content;
-    (!ref $c || !@$c) && $self->blank_fill ?
+    my @c = $self->content_list;
+    (!@c) && $self->blank_fill && !$self->mask ?
       $self->SUPER::starttag . "&nbsp; " : $self->SUPER::starttag;
   }
 
@@ -529,7 +478,8 @@ sub AUTOLOAD {
   sub new {
     my $that = shift;
     my $class = ref($that) || $that;
-    my $self = new HTML::ElementTable::Element 'td';
+    my @args = @_ ? @_ : ('td');
+    my $self = $class->SUPER::new(@args);
     bless $self, $class;
     $self->blank_fill(0);
     $self;
@@ -549,9 +499,9 @@ sub AUTOLOAD {
   sub new {
     my $that = shift;
     my $class = ref($that) || $that;
-    my $self = new HTML::Element::Table::DataElement;
+    my @args = @_ ? @_ : ('th');
+    my $self = $class->SUPER::new(@args);
     bless $self, $class;
-    $self->tag('th');
     $self;
   }
 
@@ -566,12 +516,11 @@ sub AUTOLOAD {
 
   @ISA = qw(HTML::ElementTable::Element);
 
-
   # Restrict children so that Table coordinate system is untainted.
-  my %Valid_Children;
-  ++$Valid_Children{'HTML::ElementTable::DataElement'};
-  ++$Valid_Children{'HTML::ElementTable::HeaderElement'};
-  my $VC = join(',', sort keys %Valid_Children);
+  my @Valid_Children = qw(
+			  HTML::ElementTable::DataElement
+			  HTML::ElementTable::HeaderElement
+			 );
 
   ##################
   # Native Methods #
@@ -589,33 +538,17 @@ sub AUTOLOAD {
     $self->parent->rowspan_dispatch($self->addr, @_);
   }
 
-  sub _orphan {
-    # Who's ugly and unwanted?
-    my $self = shift;
-    scalar grep(!$Valid_Children{ref $_}, @_);
-  }
-
   sub new {
     my $that = shift;
     my $class = ref($that) || $that;
-    my $self = new HTML::ElementTable::Element 'tr';
+    my @args = @_ ? @_ : ('tr');
+    my $self = $class->SUPER::new(@args);
     bless $self,$class;
-    $self;
-  }
 
-  sub AUTOLOAD {
-    # Do a check for content control, pass along to super.
-    my $self = shift;
-    my $name = $AUTOLOAD;
-    $name =~ s/.*://;
-    return if $name =~ /^DESTROY/;
-    if ($name =~ /$HTML::ElementTable::CM/o) {
-      # Picky adoption
-      croak "Attempted adoption of something other than $VC"
-	if $self->_orphan($_[0]);
-    }
-    my $sname = "SUPER::$name";
-    $self->$sname(@_);
+    # Content police for aggregate integrity
+    $self->watchdog(\@Valid_Children);
+
+    $self;
   }
 
   # End HTML::ElementTable::RowElement
@@ -651,7 +584,7 @@ sub AUTOLOAD {
     # Catch the optimization opportunities.
     my $self = shift;
     if ($self->alias && $TR_ATTRS{lc $_[0]}) {
-      $self->SUPER::delete_attr(@_);
+      $self->SUPER::attr(@_);
       return $self->alias->attr(@_);
     }
     $self->SUPER::attr(@_);
@@ -679,7 +612,8 @@ sub AUTOLOAD {
   sub new {
     my $that = shift;
     my $class = ref($that) || $that;
-    my $self = new HTML::ElementGlob 'table';
+    my @args = @_ ? @_ : ('table');
+    my $self = $class->SUPER::new(@args);
     bless $self, $class;
     $self;
   }

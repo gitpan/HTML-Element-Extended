@@ -1,7 +1,7 @@
 # HTML-Element-Extended
 
 $NAME    = 'HTML-Element-Extended';
-$VERSION = '1.06';
+$VERSION = '1.07';
 
 use ExtUtils::MakeMaker;
 

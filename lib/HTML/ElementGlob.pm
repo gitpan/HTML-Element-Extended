@@ -5,7 +5,7 @@ use vars qw($VERSION $AUTOLOAD);
 
 use HTML::ElementSuper;
 
-$VERSION = '1.03';
+$VERSION = '1.04';
 
 ####################################################
 # glob_* methods do the HTML::Element type methods #
@@ -51,7 +51,6 @@ sub context_is_glob {
 # HTML::Element based methods
 sub push_content    { shift->_content_manipulate('push_content', @_) }
 sub unshift_content { shift->_content_manipulate('unshift_content', @_) }
-sub splice_content  { shift->_content_manipulate('splice_content', @_) }
 sub splice_content  { shift->_content_manipulate('splice_content', @_) }
 # replace_with_content does not apply, as elements are not passed
 # in the argument list, they are summoned from each individual

@@ -1,19 +1,35 @@
 Revision history for Perl extension HTML-Element-Extended.
 
+1.06  Wed Apr 26 11:37:11 CDT 2000
+	- More stable content policing, used for
+	  both table integrity and masking; new
+	  content methods should automatically be
+	  safe.
+	- Deprecated delete_attr(), since this can
+	  now be addressed via attr($attr, undef).
+	- Syntactical cleanup, code fleecing.
+	  Inherited constructors will work.
+
 1.05  Tue Jan 25 20:05:05 CST 2000
 	- Versioning for the sake of CPAN
+
 1.04  Tue Jan 25 20:05:05 CST 2000
 	- Fixed incompatabilities with HTML::Element 1.45
 	- Cleaned up -w noise
 	- Improved globbing cascades
 	- Added mailing list information
+
 1.03  Wed Nov 17 23:53:58 CST 1999
 	- dynamic maxrow, maxcol, extent bug fix
+
 1.02  Thu Sep 16 15:33:41 CDT 1999
 	- Bundle fix
+
 1.01  Thu Aug 19 14:36:05 CDT 1999
 	- Minor typos corrected for tests
+
 0.09  Thu Jul  8 19:02:39 CDT 1999
 	- initial merge from HTML::Element::*
+
 1.00  Tue Jul 27 21:55:43 CDT 1999
 	- initial release
