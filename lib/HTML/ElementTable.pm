@@ -8,7 +8,7 @@ use HTML::ElementGlob;
 
 @ISA = qw(HTML::ElementTable::Element);
 
-$VERSION = '1.11';
+$VERSION = '1.12';
 
 # Enforced adoption policy such that positional coords are untainted.
 my @Valid_Children = qw( HTML::ElementTable::RowElement );
@@ -29,13 +29,16 @@ sub extent {
     if $maxrow != $self->maxrow;
   
   # Hit columns
-  my @rows = $self->is_empty ? () : $self->content_list;
+  my @rows = ();
+  foreach ($self->content_list) {
+    push(@rows) if ref && $_->tag eq 'tr';
+  }
   if ($maxcol != $self->maxcol) {
     grep($self->_adjust_content($_, $maxcol, $self->maxcol), @rows);
   }
 
-  # New data cells caused by new rows will be
-  # automatically taken care of within _adjust_content
+  # New data cells caused by new rows will be automatically taken care
+  # of within _adjust_content
 
   # Re-glob
   $self->refresh;
@@ -45,9 +48,9 @@ sub refresh {
   my $self = shift;
   my($row,$col,$p_row,$p_col);
 
-  # Reconstruct globs. There are two main
-  # globs - the row and column collections - plus the
-  # globs representing each row and each column of cells.
+  # Reconstruct globs. There are two main globs - the row and column
+  # collections - plus the globs representing each row and each column
+  # of cells.
   
   # Clear old row and column globs
   grep($_->glob_delete_content,@{$self->_rows->glob_content})
@@ -61,22 +64,24 @@ sub refresh {
   my $maxcol = -1;
   foreach $row ($self->content_list) {
     # New glob for each row, added to rows glob
+    next unless ref $row;
     $p_row = $self->_rowglob;
     $p_row->alias($row);
     $self->_rows->glob_push_content($p_row);
     $colcnt = 0;
     foreach $col ($row->is_empty ? () : @{$row->content}) {
       # Add each cell to the individual row glob
+      next unless ref $col;
       $p_row->glob_push_content($col);
       if ($colcnt > $maxcol) {
-	# If a new column, make column glob
-	$p_col = $self->_colglob;
-	$self->_cols->glob_push_content($p_col);
-	++$maxcol;
+        # If a new column, make column glob
+        $p_col = $self->_colglob;
+        $self->_cols->glob_push_content($p_col);
+        ++$maxcol;
       }
       else {
-	# Otherwise use the existing column glob
-	$p_col = $self->_cols->glob_content->[$colcnt];
+        # Otherwise use the existing column glob
+        $p_col = $self->_cols->glob_content->[$colcnt];
       }
       # Add the cell to the column glob
       $p_col->glob_push_content($col);
@@ -98,15 +103,15 @@ sub _adjust_content {
     # We are trimming
     my($i, $c, $found);
     $i = $c = -1;
-    # We mess with $i like this to avoid having
-    # non data elements throw off our grid count
+    # We mess with $i like this to avoid having non data elements throw
+    # off our grid count
     foreach (@{$e->content}) {
       ++$c;
       next unless ref;
       ++$i;
       if ($i == $limit) {
-	$found = $c;
-	next;
+        $found = $c;
+        next;
       }
       $_->delete if $found;           
     }
@@ -117,17 +122,17 @@ sub _adjust_content {
     my($tag,$d,$r);
     foreach ($old+1..$limit) {
       if ($e->tag eq 'table') {
-	$r = new HTML::ElementTable::RowElement;
-	if ($self->maxcol != -1) {
-	  # Brand new colums...use -1 as old to get 0
-	  $self->_adjust_content($r,$self->maxcol,-1);
-	}
-	$e->push_content($r);
+        $r = HTML::ElementTable::RowElement->new();
+        if ($self->maxcol != -1) {
+          # Brand new colums...use -1 as old to get 0
+          $self->_adjust_content($r,$self->maxcol,-1);
+        }
+        $e->push_content($r);
       }
       else {
-	$d = new HTML::ElementTable::DataElement;
-	$d->blank_fill($self->blank_fill);
-	$e->push_content($d);
+        $d = HTML::ElementTable::DataElement->new();
+        $d->blank_fill($self->blank_fill);
+        $e->push_content($d);
       }
     }
   }
@@ -163,6 +168,7 @@ sub cell {
   return undef unless @elements;
   @elements > 1 ? $self->_cellglob(@elements) : $elements[0];
 }
+
 sub row {
   my $self = shift;
   @_ || croak "Index required";
@@ -171,6 +177,7 @@ sub row {
   @_ > 1 ? $self->_rowglob(@{$self->_rows->glob_content}[@_])
     : $self->_rows->glob_content->[$_[0]];
 }
+
 sub col {
   my $self = shift;
   @_ || croak "Index required";
@@ -181,6 +188,7 @@ sub col {
   @_ > 1 ? $self->_colglob(@{$self->_cols->glob_content}[@_])
     : $self->_cols->glob_content->[$_[0]];
 }
+
 sub box {
   my $self = shift;
   my($r1,$c1,$r2,$c2) = @_;
@@ -202,17 +210,16 @@ sub box {
   }
   $self->cell(@coords);
 }
+
 sub table {
   my $self = shift;
-  # Both _rows and _cols are effectively globs of the
-  # whole table.  We return row here so that valid
-  # TR attrs can be captured.
+  # Both _rows and _cols are effectively globs of the whole table. We
+  # return row here so that valid TR attrs can be captured.
   $self->_rows;
 }
 
 sub mask_mode {
-  # Should span antics of children push/pull or mask/reveal
-  # siblings?
+  # Should span antics of children push/pull or mask/reveal siblings?
   my($self,$mode) = @_;
   $self->{_maskmode} = $mode if defined $mode;
   $self->{_maskmode};
@@ -231,7 +238,7 @@ sub _cols {
 sub _glob {
   my $self = shift;
   my $tag = shift || croak "No tag";
-  my $g = new HTML::ElementGlob $tag;
+  my $g = HTML::ElementGlob->new($tag);
   $g->glob_push_content(@_) if @_;
   $g;
 }
@@ -243,7 +250,7 @@ sub _colglob {
 
 sub _rowglob {
   my $self = shift;
-  my $g = new HTML::ElementTable::RowGlob;
+  my $g = HTML::ElementTable::RowGlob->new();
   $g->glob_push_content(@_) if @_;
   $g;
 }
@@ -264,8 +271,8 @@ sub colspan_dispatch {
 }
 
 sub _dimspan_dispatch {
-  # Dispatch for children to use to send notice of span changes,
-  # in rows or columns.
+  # Dispatch for children to use to send notice of span changes, in rows
+  # or columns.
   my($self,$attr,$row,$col,$span) = @_;
   defined $row && defined $col || croak "Cell row and column required";
   defined $span || croak "Span setting required";
@@ -291,8 +298,8 @@ sub _dimspan_dispatch {
 }
 
 sub blank_fill {
-  # Should blank cells be populated with "&nbsp;" in order
-  # for BGCOLOR to show up?
+  # Should blank cells be populated with "&nbsp;" in order for BGCOLOR
+  # to show up?
   my $self = shift;
   my $mode = shift;
   if (defined $mode) {
@@ -303,8 +310,8 @@ sub blank_fill {
 }
 
 sub beautify {
-  # Set mode for making as_HTML output human readable.
-  # Broadcasts to component elements.
+  # Set mode for making as_HTML output human readable. Broadcasts to
+  # component elements.
   my $self = shift;
   my $mode = shift;
   if (defined $mode) {
@@ -338,23 +345,49 @@ sub new {
   bless $self,$class;
 
   # Default to single cell
-  $maxrow = 0 unless defined $maxrow;
-  $maxcol = 0 unless defined $maxcol;
+  $maxrow ||= 0;
+  $maxcol ||= 0;
 
+  $self->_initialize_table;
+
+  $self->extent($maxrow, $maxcol);
+
+  $self;
+}
+
+sub new_from_tree {
+  # takes a regular HTML::Element table tree structure and reblesses and
+  # configures it into an HTML::ElementTable structure.
+  my($class, $tree) = @_;
+  ref $tree or croak "Ref to element tree required.\n";
+  $tree->tag eq 'table' or croak "element tree should represent a table.\n";
+  foreach my $row ($tree->content_list) {
+    next unless ref $row && $row->tag eq 'tr';
+    foreach my $cell ($row->content_list) {
+      next unless ref $cell && $cell->tag eq 'td' || $cell->tag eq 'tr';
+      bless $cell, 'HTML::ElementTable::DataElement';
+    }
+    bless $row, 'HTML::ElementTable::RowElement';
+  }
+  bless $tree, 'HTML::ElementTable';
+  $tree->_initialize_table;
+  $tree->refresh;
+  $tree;
+}
+
+sub _initialize_table {
+  my $self = shift;
   # Content police for aggregate integrity
   $self->watchdog(\@Valid_Children);
 
-  # The tag choices for globs are arbitrary, but
-  # these should at least make some sort of since
-  # if the globs are rendered as_HTML.
+  # The tag choices for globs are arbitrary, but these should at least
+  # make some sort of since if the globs are rendered as_HTML.
   $self->{_rows} = $self->_rowglob;
   $self->{_rows}->tag('table');
   $self->{_cols} = $self->_colglob;
 
   $self->mask_mode(1);
   $self->blank_fill(0);
-
-  $self->extent($maxrow, $maxcol) if defined $maxrow || defined $maxcol;
 
   $self;
 }
@@ -363,266 +396,273 @@ sub new {
 # Sub packages #
 ################
 
-{ package HTML::ElementTable::Element;
+{ 
 
-  use strict;
-  use vars qw( @ISA );
-  use HTML::ElementSuper;
+package HTML::ElementTable::Element;
 
-  @ISA = qw(HTML::ElementSuper);
+use strict;
+use vars qw( @ISA );
+use HTML::ElementSuper;
 
-  # "Beautify" mode
-  # Primarily intended for as_HTML, this mode affects
-  # how the source HTML appears.  When beautified, the
-  # starttag and endtags are modified to include indentation.
-  sub beautify {
-    my $self = shift;
-    defined $_[0] ? $self->{_beautify} = shift : $self->{_beautify};
-  }
+@ISA = qw(HTML::ElementSuper);
 
-  sub starttag {
-    my $self = shift;
-    my $spc = '';
-    if ($self->beautify && !$self->mask) {
-      $spc = ' ' x $self->depth;
-      $spc = "\n$spc";
-    }
-    $spc .  $self->SUPER::starttag;
-  }
-
-  sub new {
-    my $that = shift;
-    my $class = ref($that) || $that;
-    my $self = $class->SUPER::new(@_);
-    bless $self, $class;
-    $self;
-  }
-
-  # End HTML::ElementTable::Element
+# "Beautify" mode
+# Primarily intended for as_HTML, this mode affects how the source HTML
+# appears. When beautified, the starttag and endtags are modified to
+# include indentation.
+sub beautify {
+  my $self = shift;
+  defined $_[0] ? $self->{_beautify} = shift : $self->{_beautify};
 }
 
-{ package HTML::ElementTable::DataElement;
+sub starttag {
+  my $self = shift;
+  my $spc = '';
+  if ($self->beautify && !$self->mask) {
+    $spc = ' ' x $self->depth;
+    $spc = "\n$spc";
+  }
+  $spc . $self->SUPER::starttag;
+}
 
-  use strict;
-  use vars qw( @ISA $AUTOLOAD );
+sub new {
+  my $that = shift;
+  my $class = ref($that) || $that;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  $self;
+}
 
-  @ISA = qw(HTML::ElementTable::Element);
+# End HTML::ElementTable::Element
+}
 
-  ####################
-  # Override Methods #
-  ####################
+{
 
-  sub attr {
-    # Keep tabs on COLSPAN and ROWSPAN
-    my $self = shift;
-    my $attr = lc $_[0];
-    my $val  = $_[1] if @_ >= 2;
-    if (defined $val) {
-      if ($attr eq 'colspan') {
-	$self->parent->colspan_dispatch($self->addr, $val);
-      } 
-      elsif ($attr eq 'rowspan') {
-	$self->parent->rowspan_dispatch($self->addr, $val);
-      }
+package HTML::ElementTable::DataElement;
+
+use strict;
+use vars qw( @ISA $AUTOLOAD );
+
+@ISA = qw(HTML::ElementTable::Element);
+
+####################
+# Override Methods #
+####################
+
+sub attr {
+  # Keep tabs on COLSPAN and ROWSPAN
+  my $self = shift;
+  my $attr = lc $_[0];
+  my $val  = $_[1] if @_ >= 2;
+  if (defined $val) {
+    if ($attr eq 'colspan') {
+      $self->parent->colspan_dispatch($self->addr, $val);
+    } 
+    elsif ($attr eq 'rowspan') {
+      $self->parent->rowspan_dispatch($self->addr, $val);
     }
-    elsif (@_ >= 2) {
-      # Deleting an attr
-      if ($attr eq 'colspan' || $attr eq 'rowspan') {
-	# Make sure and dispatch zero value
-	$self->attr($attr, 0);
-      }   
-    }
+  }
+  elsif (@_ >= 2) {
+    # Deleting an attr
+    if ($attr eq 'colspan' || $attr eq 'rowspan') {
+      # Make sure and dispatch zero value
+      $self->attr($attr, 0);
+    }   
+  }
+  $self->SUPER::attr(@_);
+}
+
+sub blank_fill {
+  # Set/return mode for populating empty cells with "&nbsp;" so that
+  # BGCOLOR will show up.
+  my $self = shift;
+  @_ ? $self->{_blank_fill} = shift : $self->{_blank_fill};
+}
+
+##################
+# Codus horribilus #
+####################
+
+# This bit of unfortunate code is necessary because of the shortcomings
+# of the as_HTML method in HTML::Element. as_HTML uses
+# HTML::Entity::encode_entities to process nodes that are not elements.
+# For some reason, "<>&" is passed to the encode_entities method, which
+# effectively makes it impossible to pass a literal "&" into your HTML
+# output. Specifically, in order for the BGCOLOR to show up in an empty
+# table cell, you must include a "&nbsp;". However, you cannot pass a
+# literal "&", for it always gets translated to "&amp;", thus placing
+# "&nbsp;" as literal text in your cells. Nor can you pass the code for
+# a non-breaking space - it remains unchanged since the encode list is
+# limited.
+#
+# So we cheat. We override the starttag method, including the "&nbsp;"
+# along with the starttag if the cell is empty. This could be avoided if
+# HTML::Element relaxed a little and laid off the hand holding.
+#
+# Oh - we can't just override as_HTML() and do it correctly, because
+# as_HTML() is only invoked from the top level element - which could be
+# a plain jane HTML::Element and know nothing of HTML::Element::Table
+# elements.
+#
+# Ooo-glay!
+sub starttag {
+  my $self = shift;
+  my @c = $self->content_list;
+  (!@c) && $self->blank_fill && !$self->mask ?
+    $self->SUPER::starttag . "&nbsp; " : $self->SUPER::starttag;
+}
+
+# Constructor
+
+sub new {
+  my $that = shift;
+  my $class = ref($that) || $that;
+  my @args = @_ ? @_ : ('td');
+  my $self = $class->SUPER::new(@args);
+  bless $self, $class;
+  $self->blank_fill(0);
+  $self;
+}
+
+# End HTML::ElementTable::DataElement
+}
+
+{
+
+package HTML::ElementTable::HeaderElement;
+
+use strict;
+use vars qw( @ISA );
+use Carp;
+
+@ISA = qw(HTML::ElementTable::DataElement);
+
+sub new {
+  my $that = shift;
+  my $class = ref($that) || $that;
+  my @args = @_ ? @_ : ('th');
+  my $self = $class->SUPER::new(@args);
+  bless $self, $class;
+  $self;
+}
+
+# End HTML::ElementTable::HeaderElement
+}
+
+{
+
+package HTML::ElementTable::RowElement;
+
+use strict;
+use vars qw( @ISA $AUTOLOAD );
+use Carp;
+
+@ISA = qw(HTML::ElementTable::Element);
+
+# Restrict children so that Table coordinate system is untainted.
+my @Valid_Children = qw(
+                        HTML::ElementTable::DataElement
+                        HTML::ElementTable::HeaderElement
+                       );
+
+##################
+# Native Methods #
+##################
+
+sub colspan_dispatch {
+  # Dispatch for children to send notice of colspan changes
+  my $self = shift;
+  $self->parent->colspan_dispatch($self->addr, @_);
+}
+
+sub rowspan_dispatch {
+  # Dispatch for children to send notice of rowspan changes
+  my $self = shift;
+  $self->parent->rowspan_dispatch($self->addr, @_);
+}
+
+sub new {
+  my $that = shift;
+  my $class = ref($that) || $that;
+  my @args = @_ ? @_ : ('tr');
+  my $self = $class->SUPER::new(@args);
+  bless $self,$class;
+
+  # Content police for aggregate integrity
+  $self->watchdog(\@Valid_Children);
+
+  $self;
+}
+
+# End HTML::ElementTable::RowElement
+}
+
+{
+
+package HTML::ElementTable::RowGlob;
+
+use strict;
+use vars qw( @ISA );
+
+use HTML::ElementGlob;
+
+@ISA = qw(HTML::ElementGlob);
+
+# Designate attributes that are valid for <TR> tags.
+my %TR_ATTRS;
+grep(++$TR_ATTRS{$_},qw( align valign bgcolor ));
+
+sub alias {
+  # alias() allows us to designate an actual row element that contains
+  # our data/header elements. If we can optimize an attribute on the
+  # <TR> tag rather than each <TD> or <TH> tag, then we do so.
+  my $self = shift;
+  my $alias = shift;
+  if (ref $alias) {
+    $self->{_alias} = $alias;
+  }
+  $self->{_alias};
+}
+
+sub attr {
+  # Catch the optimization opportunities.
+  my $self = shift;
+  if ($self->alias && $TR_ATTRS{lc $_[0]}) {
     $self->SUPER::attr(@_);
+    return $self->alias->attr(@_);
   }
-
-  sub blank_fill {
-    # Set/return mode for populating empty cells with "&nbsp;" so
-    # that BGCOLOR will show up.
-    my $self = shift;
-    @_ ? $self->{_blank_fill} = shift : $self->{_blank_fill};
-  }
-
-  ####################
-  # Codus horribilus #
-  ####################
-
-  # This bit of unfortunate code is necessary because of the
-  # shortcomings of the as_HTML method in HTML::Element.  as_HTML
-  # uses HTML::Entity::encode_entities to process nodes that
-  # are not elements.  For some reason, "<>&" is passed to the
-  # encode_entities method, which effectively makes it impossible
-  # to pass a literal "&" into your HTML output.  Specifically,
-  # in order for the BGCOLOR to show up in an empty table cell,
-  # you must include a "&nbsp;".  However, you cannot pass a literal
-  # "&", for it always gets translated to "&amp;", thus placing
-  # "&nbsp;" as literal text in your cells.  Nor can you pass the
-  # code for a non-breaking space - it remains unchanged since the
-  # encode list is limited.
-  #
-  # So we cheat.  We override the starttag method, including the "&nbsp;"
-  # along with the starttag if the cell is empty.  This could be
-  # avoided if HTML::Element relaxed a little and laid off the hand
-  # holding.
-  #
-  # Oh - we can't just override as_HTML() and do it correctly, because
-  # as_HTML() is only invoked from the top level element - which could be
-  # a plain jane HTML::Element and know nothing of HTML::Element::Table
-  # elements.
-  #
-  # Ooo-glay!
-  sub starttag {
-    my $self = shift;
-    my @c = $self->content_list;
-    (!@c) && $self->blank_fill && !$self->mask ?
-      $self->SUPER::starttag . "&nbsp; " : $self->SUPER::starttag;
-  }
-
-  # Constructor
-
-  sub new {
-    my $that = shift;
-    my $class = ref($that) || $that;
-    my @args = @_ ? @_ : ('td');
-    my $self = $class->SUPER::new(@args);
-    bless $self, $class;
-    $self->blank_fill(0);
-    $self;
-  }
-
-  # End HTML::ElementTable::DataElement
+  $self->SUPER::attr(@_);
 }
 
-{ package HTML::ElementTable::HeaderElement;
-
-  use strict;
-  use vars qw( @ISA );
-  use Carp;
-
-  @ISA = qw(HTML::ElementTable::DataElement);
-
-  sub new {
-    my $that = shift;
-    my $class = ref($that) || $that;
-    my @args = @_ ? @_ : ('th');
-    my $self = $class->SUPER::new(@args);
-    bless $self, $class;
-    $self;
+sub mask {
+  # In addition to masking all children <TD> and <TH> tags, we have to
+  # mask the row itself - accessible via the alias().
+  my $self = shift;
+  if ($self->alias) {
+    return $self->alias->mask(@_);
   }
-
-  # End HTML::ElementTable::HeaderElement
+  $self->SUPER::mask(@_);
 }
 
-{ package HTML::ElementTable::RowElement;
-
-  use strict;
-  use vars qw( @ISA $AUTOLOAD );
-  use Carp;
-
-  @ISA = qw(HTML::ElementTable::Element);
-
-  # Restrict children so that Table coordinate system is untainted.
-  my @Valid_Children = qw(
-			  HTML::ElementTable::DataElement
-			  HTML::ElementTable::HeaderElement
-			 );
-
-  ##################
-  # Native Methods #
-  ##################
-
-  sub colspan_dispatch {
-    # Dispatch for children to send notice of colspan changes
-    my $self = shift;
-    $self->parent->colspan_dispatch($self->addr, @_);
+sub beautify {
+  # Broadcast beautify to alias
+  my $self = shift;
+  if ($self->alias) {
+    return $self->alias->beautify(@_);
   }
-
-  sub rowspan_dispatch {
-    # Dispatch for children to send notice of rowspan changes
-    my $self = shift;
-    $self->parent->rowspan_dispatch($self->addr, @_);
-  }
-
-  sub new {
-    my $that = shift;
-    my $class = ref($that) || $that;
-    my @args = @_ ? @_ : ('tr');
-    my $self = $class->SUPER::new(@args);
-    bless $self,$class;
-
-    # Content police for aggregate integrity
-    $self->watchdog(\@Valid_Children);
-
-    $self;
-  }
-
-  # End HTML::ElementTable::RowElement
+  $self->SUPER::beautify(@_);
 }
 
-{ package HTML::ElementTable::RowGlob;
+sub new {
+  my $that = shift;
+  my $class = ref($that) || $that;
+  my @args = @_ ? @_ : ('table');
+  my $self = $class->SUPER::new(@args);
+  bless $self, $class;
+  $self;
+}
 
-  use strict;
-  use vars qw( @ISA );
-
-  use HTML::ElementGlob;
-
-  @ISA = qw(HTML::ElementGlob);
-
-  # Designate attributes that are valid for <TR> tags.
-  my %TR_ATTRS;
-  grep(++$TR_ATTRS{$_},qw( align valign bgcolor ));
-
-  sub alias {
-    # alias() allows us to designate an actual row element
-    # that contains our data/header elements.  If we can optimize
-    # an attribute on the <TR> tag rather than each <TD> or <TH>
-    # tag, then we do so.
-    my $self = shift;
-    my $alias = shift;
-    if (ref $alias) {
-      $self->{_alias} = $alias;
-    }
-    $self->{_alias};
-  }
-
-  sub attr {
-    # Catch the optimization opportunities.
-    my $self = shift;
-    if ($self->alias && $TR_ATTRS{lc $_[0]}) {
-      $self->SUPER::attr(@_);
-      return $self->alias->attr(@_);
-    }
-    $self->SUPER::attr(@_);
-  }
-
-  sub mask {
-    # In addition to masking all children <TD> and <TH> tags,
-    # we have to mask the row itself - accessible via the alias().
-    my $self = shift;
-    if ($self->alias) {
-      return $self->alias->mask(@_);
-    }
-    $self->SUPER::mask(@_);
-  }
-
-  sub beautify {
-    # Broadcast beautify to alias
-    my $self = shift;
-    if ($self->alias) {
-      return $self->alias->beautify(@_);
-    }
-    $self->SUPER::beautify(@_);
-  }
-
-  sub new {
-    my $that = shift;
-    my $class = ref($that) || $that;
-    my @args = @_ ? @_ : ('table');
-    my $self = $class->SUPER::new(@args);
-    bless $self, $class;
-    $self;
-  }
-
-  # End HTML::ElementTable::RowGlob
+# End HTML::ElementTable::RowGlob
 }
 
 1;
@@ -673,9 +713,9 @@ HTML::ElementTable - Perl extension for manipulating a table composed of HTML::E
 
 =head1 DESCRIPTION
 
-HTML::ElementTable provides a highly enhanced HTML::ElementSuper structure
-with methods designed to easily manipulate table elements by
-using coordinates.  Elements can be manipulated in bulk by individual
+HTML::ElementTable provides a highly enhanced HTML::ElementSuper
+structure with methods designed to easily manipulate table elements by
+using coordinates. Elements can be manipulated in bulk by individual
 cells, arbitrary groupings of cells, boxes, columns, rows, or the
 entire table.
 
@@ -691,9 +731,9 @@ CONSTRUCTOR
 
 =item new(maxrow => row, maxcol => col)
 
-Return a new HTML::ElementTable object.  If the number of rows
-and columns were provided, all elements required for the rows
-and columns will be initialized as well.  See extent().
+Return a new HTML::ElementTable object. If the number of rows and
+columns were provided, all elements required for the rows and columns
+will be initialized as well. See extent().
 
 =back
 
@@ -705,13 +745,13 @@ TABLE CONFIGURATION
 
 =item extent(maxrow, maxcolumn)
 
-Set or return the extent of the current table.  The I<maxrow> and
-I<maxcolumn> parameters indicate the maximum row and column coordinates
-you desire in the table.  These are the coordinates of the lower
-right cell in the table, starting from (0,0) at the upper left. Providing
-a smaller extent than the current one will shrink the table with no 
-ill effect, provided you do not mind losing the information in the
-clipped cells.
+Set or return the extent of the current table. The I<maxrow> and
+I<maxcolumn> parameters indicate the maximum row and column
+coordinates you desire in the table. These are the coordinates of the
+lower right cell in the table, starting from (0,0) at the upper left.
+Providing a smaller extent than the current one will shrink the table
+with no ill effect, provided you do not mind losing the information in
+the clipped cells.
 
 =item maxrow()
 
@@ -725,14 +765,14 @@ Set or return the coordinate of the last column.
 
 ELEMENT ACCESS
 
-Unless accessing a single element, most table element access is accomplished
-through I<globs>, which are collections of elements that behave as if they
-were a single element object.
+Unless accessing a single element, most table element access is
+accomplished through I<globs>, which are collections of elements that
+behave as if they were a single element object.
 
-Whenever possible, globbed operations are optimized into the most appropriate
-element.  For example, if you set an attribute for a row glob, the attribute
-will be set either on the <TR> element or the collected <TD> elements,
-whichever is appropriate.
+Whenever possible, globbed operations are optimized into the most
+appropriate element. For example, if you set an attribute for a row
+glob, the attribute will be set either on the <TR> element or the
+collected <TD> elements, whichever is appropriate.
 
 See L<HTML::ElementGlob(3)> for more information on element globs.
 
@@ -748,32 +788,34 @@ Access the contents of a row or collection of rows by row coordinate.
 
 =item col(col,[col2,...])
 
-Access the contents of a column or collection of columns by column coordinate.
+Access the contents of a column or collection of columns by column
+coordinate.
 
 =item box(row_a1,col_a1,row_a2,col_a2,[row_b1,col_b1,row_b2,col_b2],[...])
 
 Access the contents of a span of cells, specified as a box consisting of
-two sets of coordinates.  Multiple boxes can be specified.
+two sets of coordinates. Multiple boxes can be specified.
 
 =item table()
 
-Access all cells in the table.  This is different from manipulating the
+Access all cells in the table. This is different from manipulating the
 table object itself, which is reserved for such things as CELLSPACING
-and other attributes specific to the <TABLE> tag.  However, since table()
+and other attributes specific to the <TABLE> tag. However, since table()
 returns a glob of cells, if the attribute is more appropriate for the
-top level <TABLE> tag, it will be placed there rather than in each
-<TR> tag or every <TD> tag.
+top level <TABLE> tag, it will be placed there rather than in each <TR>
+tag or every <TD> tag.
 
 =back
 
 ELEMENT/GLOB METHODS
 
 The interfaces to a single table element or a glob of elements are
-identical.  All methods available from the HTML::ElementSuper class
-are also available to a table element or glob of elements.
-See L<HTML::ElementSuper(3)> for details on these methods.
+identical. All methods available from the HTML::ElementSuper class are
+also available to a table element or glob of elements. See
+L<HTML::ElementSuper(3)> for details on these methods.
 
-Briefly, here are some of the more useful methods provided by HTML::ElementSuper:
+Briefly, here are some of the more useful methods provided by
+HTML::ElementSuper:
 
 =over
 
@@ -797,34 +839,32 @@ TABLE SPECIFIC EXTENSIONS
 
 =item blank_fill([mode])
 
-Set or return the current fill mode for blank cells. The default
-is 0 for HTML::Element::Table elements.  When most browsers
-render tables, if they are empty you will get a box the color
-of your browser background color rather than the BGCOLOR of that
-cell.  When enabled, empty cells are provided with an '&nbsp;',
-or invisible content, which will trigger the rendering of the
-BGCOLOR for that cell.
+Set or return the current fill mode for blank cells. The default is 0
+for HTML::Element::Table elements. When most browsers render tables, if
+they are empty you will get a box the color of your browser background
+color rather than the BGCOLOR of that cell. When enabled, empty cells
+are provided with an '&nbsp;', or invisible content, which will trigger
+the rendering of the BGCOLOR for that cell.
 
 =back
 
 =head1 NOTES ON GLOBS
 
-Globbing was a convenient way to treat arbitrary collections of
-table cells as if they were a single HTML element.  Methods are
-generally passed blindly and sequentially to the elements they
-contain.
+Globbing was a convenient way to treat arbitrary collections of table
+cells as if they were a single HTML element. Methods are generally
+passed blindly and sequentially to the elements they contain.
 
-Most of the time, this is fairly intuitive, such as when you are
-setting the attributes of the cells.
+Most of the time, this is fairly intuitive, such as when you are setting
+the attributes of the cells.
 
-Other times, it might be problematic, such as with push_content().
-Do you push the same object to all of the cells? HTML::Element based
+Other times, it might be problematic, such as with push_content(). Do
+you push the same object to all of the cells? HTML::Element based
 classes only support one parent, so this breaks if you try to push the
-same element into multiple parental hopefuls.  In the specific
-case of push_content() on globs, the elements that eventually
-get pushed are clones of the originally provided content.  It
-works, but it is not necessarily what you expect.  An incestuous
-HTML element tree is probably not what you want anyway.
+same element into multiple parental hopefuls. In the specific case of
+push_content() on globs, the elements that eventually get pushed are
+clones of the originally provided content. It works, but it is not
+necessarily what you expect. An incestuous HTML element tree is probably
+not what you want anyway.
 
 See L<HTML::ElementGlob(3)> for more details on how globs work.
 
@@ -842,10 +882,9 @@ Thanks to William R. Ward for some conceptual nudging.
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2002 Matthew P. Sisk.
-All rights reserved. All wrongs revenged. This program is free
-software; you can redistribute it and/or modify it under the
-same terms as Perl itself.
+Copyright (c) 1998-2005 Matthew P. Sisk. All rights reserved. All wrongs
+revenged. This program is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
 
 =head1 SEE ALSO
 

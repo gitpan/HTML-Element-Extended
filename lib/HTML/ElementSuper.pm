@@ -19,7 +19,7 @@ use HTML::Element 3.01;
 
 @ISA = qw(HTML::Element);
 
-$VERSION = '1.11';
+$VERSION = '1.12';
 
 ### Begin Positional extension ###
 
@@ -28,17 +28,10 @@ sub addr {
   my $p = $self->parent;
   return undef unless $p;
   my @sibs = $p->content_list;
-  # For unknown reasons, at least on Solaris, a simple 'return $_'
-  # does not work from within the foreach loop. I have no idea why,
-  # but here's the clunky workaround.
-  my $a;
-  foreach (0..$#sibs) {
-    if (defined $sibs[$_] && $sibs[$_] eq $self) {
-      $a = $_;
-      last;
-    }
+  foreach my $i (0..$#sibs) {
+    return $i if defined $sibs[$i] && $sibs[$i] eq $self;
   }
-  $a;
+  croak "major oops, no addr found for $self\n";
 }
 
 sub position {
@@ -325,9 +318,8 @@ sub new {
   my $that = shift;
   my $class = ref($that) || $that;
   my $self = $class->SUPER::new(@_);
-  # Grrr. content() is read only, and for various
-  # reasons I need to initialize this to an array ref.
-  $self->{_content} = [];
+  # force init of content with array ref
+  $self->content_array_ref;
   bless $self,$class;
   $self;
 }
@@ -335,9 +327,9 @@ sub new {
 ### Deprecated methods ###
 
 sub delete_attr {
-  # Deprecated by new HTML::Element functionality.
-  # Should now use attr($attr, undef) for attribute deletions.
-  # Still returning the old value here for backwards compatability.
+  # Deprecated by new HTML::Element functionality. Should now use
+  # attr($attr, undef) for attribute deletions. Still returning the old
+  # value here for backwards compatability.
   my($self, $attr) = @_;
   $attr = lc $attr;
   my $old = $self->attr($attr);
@@ -366,42 +358,42 @@ sub replace_with {
   use Tie::Array;
   @ISA = qw( Tie::Array );
 
-  # I got tired of jumping through hoops dealing with the new HTML::Element
-  # semantics. Since I could no longer override traverse() I was having
-  # to go through all sorts of contortions to "hide" elements in the
-  # tree when masked. In a cohesive tree like HTML::ElementTable, this
-  # was still insufficient because globbed access to the masked elements
-  # still needed to be retained.
+  # I got tired of jumping through hoops dealing with the new
+  # HTML::Element semantics. Since I could no longer override traverse()
+  # I was having to go through all sorts of contortions to "hide"
+  # elements in the tree when masked. In a cohesive tree like
+  # HTML::ElementTable, this was still insufficient because globbed
+  # access to the masked elements still needed to be retained.
   #
-  # The hoops in question involved either a) breaking containment
-  # all over the place, or b) overriding *all* content methods,
-  # or c) swapping in a doppleganger element for the masked element,
-  # which then involved overriding just about everything since
-  # the positional methods needed to look at the doppleganger, but
-  # everything else needed to look at the original.
+  # The hoops in question involved either a) breaking containment all
+  # over the place, or b) overriding *all* content methods, or c)
+  # swapping in a doppleganger element for the masked element, which
+  # then involved overriding just about everything since the positional
+  # methods needed to look at the doppleganger, but everything else
+  # needed to look at the original.
   #
-  # So here I provide a class for tying the content array and doing
-  # the right thing when masked. Note that starttag() and endtag()
-  # still need to be overridden, but this tied class should take care
-  # of traverse rifling through masked content.
+  # So here I provide a class for tying the content array and doing the
+  # right thing when masked. Note that starttag() and endtag() still
+  # need to be overridden, but this tied class should take care of
+  # traverse rifling through masked content.
   #
   # Note that all content manipulation works as expected, except for
   # FETCH. This is intentional.
   #
   # Technically, this is not breaking containment since the content()
-  # method returns the content array reference. Even though this is
-  # a read-only method, we can still tie() over the array pointed to
-  # by the reference!
+  # method returns the content array reference. Even though this is a
+  # read-only method, we can still tie() over the array pointed to by
+  # the reference!
   #
   # See mask() for implementation.
   #
   # I'll probably go to programmer hell for this, but what the hey.
   #
-  # UPDATE: Since I was already doing this for masking, I decided
-  # to to general content policing with the same mechanism, but only
-  # when requrested via the watchdog parameter, passed as a code
-  # reference. Alas, this meant a full implmentation rather than
-  # just subclassing Tie::StdArray and overriding FETCH().
+  # UPDATE: Since I was already doing this for masking, I decided to to
+  # general content policing with the same mechanism, but only when
+  # requested via the watchdog parameter, passed as a code reference.
+  # Alas, this meant a full implmentation rather than just subclassing
+  # Tie::StdArray and overriding FETCH().
 
   # Object methods
 
@@ -412,7 +404,7 @@ sub replace_with {
     if ($classes_ref) {
       $self->{watchdog} = {};
       foreach (@$classes_ref) {
-	++$self->{watchdog}{$_};
+        ++$self->{watchdog}{$_};
       }
     }
     $self->{watchdog};
@@ -424,8 +416,8 @@ sub replace_with {
     foreach (@objects) {
       my $type = ref($_) || $_;
       croak "Adoption of type $type, which is not of type " .
-	join(', ', sort keys %{$self->{watchdog}}) . "\n"
-	  unless $self->{watchdog}{$type};
+        join(', ', sort keys %{$self->{watchdog}}) . "\n"
+          unless $self->{watchdog}{$type};
     }
     1;
   }
@@ -549,19 +541,19 @@ HTML::ElementSuper - Perl extension for HTML::Element(3)
 =head1 DESCRIPTION
 
 HTML::ElementSuper is an extension for HTML::Element(3) that provides
-several new methods to assist in element manipulation.  An HTML::ElementSuper
-has the following additional properties:
+several new methods to assist in element manipulation. An
+HTML::ElementSuper has the following additional properties:
 
    * report is coordinate position in a tree of its peers
    * replace its contents
    * wrap its contents in a new element
-   * mask itself so that it and its descendants are invisible
-     to traverse()
+   * mask itself so that it and its descendants are invisible to
+     traverse()
    * clone itself and other HTML::Element based object trees
 
 Note that these extensions were originally developed to assist in
-implementing the HTML::ElementTable(3) class, but were thought to be
-of general enough utility to warrant their own package.
+implementing the HTML::ElementTable(3) class, but were thought to be of
+general enough utility to warrant their own package.
 
 =head1 METHODS
 
@@ -569,60 +561,60 @@ of general enough utility to warrant their own package.
 
 =item new('tag', attr => 'value', ...)
 
-Return a new HTML::ElementSuper object.  Exactly like the constructor
-for HTML::Element(3), takes a tag type and optional attributes.
+Return a new HTML::ElementSuper object. Exactly like the constructor for
+HTML::Element(3), takes a tag type and optional attributes.
 
 =item addr()
 
-Returns the position of this element in relation to its siblings
-based on the content of the parent, starting with 0.  Returns
-undef if this element has no parent. In other words, this returns
-the index of this element in the content array of the parent.
+Returns the position of this element in relation to its siblings based
+on the content of the parent, starting with 0. Returns undef if this
+element has no parent. In other words, this returns the index of this
+element in the content array of the parent.
 
 =item position()
 
-Returns the coordinates of this element in the tree it inhabits.
-This is accomplished by succesively calling addr() on ancestor
-elements until either a) an element that does not support these
-methods is found, or b) there are no more parents.  The resulting
-list is the n-dimensional coordinates of the element in the tree.
+Returns the coordinates of this element in the tree it inhabits. This is
+accomplished by succesively calling addr() on ancestor elements until
+either a) an element that does not support these methods is found, or b)
+there are no more parents. The resulting list is the n-dimensional
+coordinates of the element in the tree.
 
 =item replace_content(@new_content)
 
-Simple shortcut method that deletes the current contents of the
-element before adding the new.
+Simple shortcut method that deletes the current contents of the element
+before adding the new.
 
 =item wrap_content($wrapper_element)
 
-Wraps the existing content in the provided element.  If the
-provided element happens to be a non-element, a push_content
-is performed instead.
+Wraps the existing content in the provided element. If the
+provided element happens to be a non-element, a push_content is
+performed instead.
 
 =item mask
 
 =item mask(mode)
 
-Toggles whether or not this element is visible to parental
-methods that visit the element tree using traverse(), such as
-as_HTML().  Valid arguments for mask() are 0 and 1.  Returns
-the current setting without an argument.
+Toggles whether or not this element is visible to parental methods that
+visit the element tree using traverse(), such as as_HTML(). Valid
+arguments for mask() are 0 and 1. Returns the current setting without
+an argument.
 
-This might seem like a strange method to have, but it helps
-in managing dynamic tree structures.  For example, in HTML::ElementTable(3),
-when you expand a table cell you simply mask what it covers
-rather than destroy it.  Shrinking the table cell reveals that
-content to as_HTML() once again.
+This might seem like a strange method to have, but it helps in managing
+dynamic tree structures. For example, in HTML::ElementTable(3), when
+you expand a table cell you simply mask what it covers rather than
+destroy it. Shrinking the table cell reveals that content to as_HTML()
+once again.
 
 =item clone
 
 =item clone(@elements)
 
-Returns a clone of elements and all of their descendants.  Without
-arguments, the element clones itself, otherwise it clones the
-elements provided as arguments. Any element can be cloned as long
-as it is HTML::Element(3) based.  This method is very handy for
-duplicating tree structures since an HTML::Element cannot have
-more than one parent at any given time...hence "tree".
+Returns a clone of elements and all of their descendants. Without
+arguments, the element clones itself, otherwise it clones the elements
+provided as arguments. Any element can be cloned as long as it is
+HTML::Element(3) based. This method is very handy for duplicating tree
+structures since an HTML::Element cannot have more than one parent at
+any given time...hence "tree".
 
 =back
 
@@ -636,10 +628,9 @@ Matthew P. Sisk, E<lt>F<sisk@mojotoad.com>E<gt>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2002 Matthew P. Sisk.
-All rights reserved. All wrongs revenged. This program is free
-software; you can redistribute it and/or modify it under the
-same terms as Perl itself.
+Copyright (c) 1998-2005 Matthew P. Sisk. All rights reserved. All wrongs
+revenged. This program is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
 
 =head1 SEE ALSO
 

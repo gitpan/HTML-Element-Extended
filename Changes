@@ -1,50 +1,55 @@
 Revision history for Perl extension HTML-Element-Extended.
 
+1.12  Wed Mar  9 02:30:10 EST 2005
+        - Added new_from_tree() constructor which takes an HTML::Element
+          object based on a table tag and converts it into a cohesive
+          HTML::ElementTable structure.
+
 1.11  Tue Apr  2 08:37:42 CST 2002
-	- Added some version dependencies on prereq modules
-	- More -w cleanup (tie/ref dep)
+        - Added some version dependencies on prereq modules
+        - More -w cleanup (tie/ref dep)
 
 1.10  Mon Jan  8 19:29:59 CST 2001
-	- Maintenance release (-w cleanup)
+        - Maintenance release (-w cleanup)
 
 1.09  Fri Nov 10 02:21:30 CST 2000
-	- Various bugs and warnings fixed.
+        - Various bugs and warnings fixed.
 
 1.08  Tue May  2 15:03:15 CDT 2000
-	- clone() bug fix regarding text vs ref on first node.
-	- adapted glob class to use content_list() rather than
-	  content()
+        - clone() bug fix regarding text vs ref on first node.
+        - adapted glob class to use content_list() rather than
+          content()
 
 1.07  Wed Apr 26 11:37:11 CDT 2000
-	- More stable content policing, used for
-	  both table integrity and masking; new
-	  content methods should automatically be
-	  safe.
-	- Deprecated delete_attr(), since this can
-	  now be addressed via attr($attr, undef).
-	- Syntactical cleanup, code fleecing.
-	  Inherited constructors will work.
+        - More stable content policing, used for
+          both table integrity and masking; new
+          content methods should automatically be
+          safe.
+        - Deprecated delete_attr(), since this can
+          now be addressed via attr($attr, undef).
+        - Syntactical cleanup, code fleecing.
+          Inherited constructors will work.
 
 1.06  Tue Jan 25 20:05:05 CST 2000
-1.05	- Versioning for the sake of CPAN
+1.05    - Versioning for the sake of CPAN
 
 1.04  Tue Jan 25 20:05:05 CST 2000
-	- Fixed incompatabilities with HTML::Element 1.45
-	- Cleaned up -w noise
-	- Improved globbing cascades
-	- Added mailing list information
+        - Fixed incompatabilities with HTML::Element 1.45
+        - Cleaned up -w noise
+        - Improved globbing cascades
+        - Added mailing list information
 
 1.03  Wed Nov 17 23:53:58 CST 1999
-	- dynamic maxrow, maxcol, extent bug fix
+        - dynamic maxrow, maxcol, extent bug fix
 
 1.02  Thu Sep 16 15:33:41 CDT 1999
-	- Bundle fix
+        - Bundle fix
 
 1.01  Thu Aug 19 14:36:05 CDT 1999
-	- Minor typos corrected for tests
+        - Minor typos corrected for tests
 
 0.09  Thu Jul  8 19:02:39 CDT 1999
-	- initial merge from HTML::Element::*
+        - initial merge from HTML::Element::*
 
 1.00  Tue Jul 27 21:55:43 CDT 1999
-	- initial release
+        - initial release

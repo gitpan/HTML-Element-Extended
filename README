@@ -1,29 +1,29 @@
 HTML-Element-Extended
 ---------------------
 
-HTML-Element-Extended is a package of several enhanced
-HTML::Element classes, most of which arose during the effort
-to implement an HTML::Element based table class.
+HTML-Element-Extended is a package of several enhanced HTML::Element
+classes, most of which arose during the effort to implement an
+HTML::Element based table class.
 
 The modules are:
-	HTML::ElementTable
-	HTML::ElementSuper
-	HTML::ElementGlob
-	HTML::ElementRaw
+        HTML::ElementTable
+        HTML::ElementSuper
+        HTML::ElementGlob
+        HTML::ElementRaw
 
 The resulting functionality enables:
-	tables
-	element globs
-	element coordinates
-	content replacement
-	content wrapping
-	element cloning
-	raw HTML string adoption
+        tables
+        element globs
+        element coordinates
+        content replacement
+        content wrapping
+        element cloning
+        raw HTML string adoption
 
 INSTALLATION
 
-You install HTML-Element-Extended, as you would install any perl library,
-by running these commands:
+You install HTML-Element-Extended, as you would install any perl
+library, by running these commands:
 
    perl Makefile.PL
    make
@@ -34,9 +34,9 @@ DOCUMENTATION
 
 POD style documentation is included with each module. This is normally
 converted to a manual page and installed as part of the "make install"
-process. You should also be able to use the 'perldoc' utility to
-extract and read documentation from the module file directly.  See
-Changes for recent changes.
+process. You should also be able to use the 'perldoc' utility to extract
+and read documentation from the module file directly. See Changes for
+recent changes.
 
 There should also be some examples on the web page mentioned below.
 
@@ -48,7 +48,8 @@ visit the following URL:
 
    http://lists.sourceforge.net/mailman/listinfo/elementextended-general
 
-Questions and comments may also be directed to Matt Sisk <sisk@mojotoad.com>
+Questions and comments may also be directed to Matt Sisk
+<sisk@mojotoad.com>
 
 AVAILABILITY
 
@@ -62,7 +63,7 @@ The latest version is also available at:
 
 COPYRIGHT
 
-Copyright (c) 1999-2002 Matthew P. Sisk.  All rights reserved.
-All wrongs revenged. This program is free software; you can
-redistribute it and/or modify it under the same terms as
-Perl itself.
+Copyright (c) 1999-2005 Matthew P. Sisk. All rights reserved. All wrongs
+revenged. This program is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
+
