@@ -8,7 +8,7 @@ use HTML::ElementGlob;
 
 @ISA = qw(HTML::ElementTable::Element);
 
-$VERSION = '1.09';
+$VERSION = '1.10';
 
 # Enforced adoption policy such that positional coords are untainted.
 my @Valid_Children = qw( HTML::ElementTable::RowElement );

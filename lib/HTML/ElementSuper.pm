@@ -16,7 +16,7 @@ use HTML::Element;
 
 @ISA = qw(HTML::Element);
 
-$VERSION = '1.09';
+$VERSION = '1.10';
 
 ### Begin Positional extension ###
 
@@ -30,7 +30,7 @@ sub addr {
   # but here's the clunky workaround.
   my $a;
   foreach (0..$#sibs) {
-    if ($sibs[$_] eq $self) {
+    if (defined $sibs[$_] && $sibs[$_] eq $self) {
       $a = $_;
       last;
     }
