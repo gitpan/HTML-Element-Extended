@@ -65,8 +65,7 @@ sub _content_manipulate {
   # element trees provided to content methods
   my $self = shift;
   my $name = shift;
-  my @children = $self->{_element}->is_empty ? () :
-    @{$self->{_element}->content()};
+  my @children = $self->{_element}->content_list;
   # Find the first child that will have the method
   # invoked.
   my $first = undef;
@@ -152,7 +151,7 @@ sub AUTOLOAD {
   # Otherwise broadcast to component elements.
   if (!$self->{_element}->is_empty) {
     my @results;
-    foreach (@{$self->{_element}->content()}) {
+    foreach ($self->{_element}->content_list) {
       next unless ref;
       push(@results, $_->$name(@_));
     }

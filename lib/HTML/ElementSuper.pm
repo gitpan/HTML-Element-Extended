@@ -113,7 +113,7 @@ sub clone {
 			$node->watchdog->mask(1) if $node->mask;
 		      }
 		      1;
-		    }, 'ignore_text');
+		    }, 'ignore_text') if ref $VAR1;
     push(@clones, $VAR1);
   }
   $#clones ? @clones : $clones[0];
@@ -123,6 +123,7 @@ sub _cloning {
   # Ugh. We need to do this when we clone and happen to be masked,
   # otherwise masked content will not make it into the clone.
   my $node = shift;
+  return unless ref $node;
   if (@_) {
     if ($_[0]) {
       $node->traverse(sub {

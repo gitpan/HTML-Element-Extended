@@ -1,6 +1,11 @@
 Revision history for Perl extension HTML-Element-Extended.
 
-1.06  Wed Apr 26 11:37:11 CDT 2000
+1.08  Tue May  2 15:03:15 CDT 2000
+	- clone() bug fix regarding text vs ref on first node.
+	- adapted glob class to use content_list() rather than
+	  content()
+
+1.07  Wed Apr 26 11:37:11 CDT 2000
 	- More stable content policing, used for
 	  both table integrity and masking; new
 	  content methods should automatically be
@@ -10,8 +15,8 @@ Revision history for Perl extension HTML-Element-Extended.
 	- Syntactical cleanup, code fleecing.
 	  Inherited constructors will work.
 
-1.05  Tue Jan 25 20:05:05 CST 2000
-	- Versioning for the sake of CPAN
+1.06  Tue Jan 25 20:05:05 CST 2000
+1.05	- Versioning for the sake of CPAN
 
 1.04  Tue Jan 25 20:05:05 CST 2000
 	- Fixed incompatabilities with HTML::Element 1.45
