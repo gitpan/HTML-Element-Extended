@@ -1,5 +1,8 @@
 Revision history for Perl extension HTML-Element-Extended.
 
+1.13  Mon Mar 28 15:14:12 EST 2005
+	- Fixed nasty content bug
+
 1.12  Wed Mar  9 02:30:10 EST 2005
         - Added new_from_tree() constructor which takes an HTML::Element
           object based on a table tag and converts it into a cohesive

@@ -8,7 +8,7 @@ use HTML::ElementGlob;
 
 @ISA = qw(HTML::ElementTable::Element);
 
-$VERSION = '1.12';
+$VERSION = '1.13';
 
 # Enforced adoption policy such that positional coords are untainted.
 my @Valid_Children = qw( HTML::ElementTable::RowElement );
@@ -31,7 +31,7 @@ sub extent {
   # Hit columns
   my @rows = ();
   foreach ($self->content_list) {
-    push(@rows) if ref && $_->tag eq 'tr';
+    push(@rows, $_) if ref && $_->tag eq 'tr';
   }
   if ($maxcol != $self->maxcol) {
     grep($self->_adjust_content($_, $maxcol, $self->maxcol), @rows);
@@ -154,16 +154,16 @@ sub maxcol {
 # Index and glob hooks
 sub cell {
   my $self = shift;
-  my ($r,$c,@elements);
+  my @elements;
   while (@_) {
-    ($r,$c) = (shift,shift);
+    my($r, $c) = splice(@_, 0, 2);
     defined $r && defined $c || croak "Missing coordinate";
-    my $r = $self->row($r);
-    croak "Row $r is empty" if $r->glob_is_empty;
-    if ($#{$r->glob_content} < $c || $c < 0) {
+    my $row = $self->row($r);
+    croak "Row $r is empty" if $row->glob_is_empty;
+    if ($#{$row->glob_content} < $c || $c < 0) {
       croak "Cell ($r,$c) is out of range";
     }
-    push(@elements,$r->glob_content->[$c]);
+    push(@elements, $row->glob_content->[$c]);
   }
   return undef unless @elements;
   @elements > 1 ? $self->_cellglob(@elements) : $elements[0];
@@ -723,7 +723,7 @@ entire table.
 
 Table coordinates start at 0,0 in the upper left cell.
 
-CONSTRUCTOR
+CONSTRUCTORS
 
 =over 4
 
@@ -734,6 +734,14 @@ CONSTRUCTOR
 Return a new HTML::ElementTable object. If the number of rows and
 columns were provided, all elements required for the rows and columns
 will be initialized as well. See extent().
+
+=item new_from_tree($tree)
+
+Takes an existing top-level HTML::Element representing a table and
+converts the entire table structure into a cohesive
+HTML::ElementTable construct. (this is potentially useful if you want
+to use the power of this module for editing HTML tables in place
+within an HTML::Element tree).
 
 =back
 

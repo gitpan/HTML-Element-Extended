@@ -12,14 +12,13 @@ use vars qw($VERSION @ISA $AUTOLOAD);
 use Carp;
 use Data::Dumper;
 
-# Make sure we have access to the new methods. These were added
-# sometime in early 2000 but we'll just anchor off of the new
-# numbering system.
+# Make sure we have access to the new methods. These were added sometime
+# in early 2000 but we'll just anchor off of the new numbering system.
 use HTML::Element 3.01;
 
 @ISA = qw(HTML::Element);
 
-$VERSION = '1.12';
+$VERSION = '1.13';
 
 ### Begin Positional extension ###
 
@@ -35,17 +34,17 @@ sub addr {
 }
 
 sub position {
-  # Report coordinates by chasing addr's up the
-  # HTML::ElementSuper tree.  We know we've reached
-  # the top when a) there is no parent, or b) the
-  # parent is some HTML::Element unable to report
-  # it's position.
+  # Report coordinates by chasing addr's up the HTML::ElementSuper tree.
+  # We know we've reached the top when a) there is no parent, or b) the
+  # parent is some HTML::Element unable to report it's position.
   my $p = shift;
   my @pos;
   while ($p) {
+    my $pp = $p->parent;
+    last unless ref $pp && $pp->isa(__PACKAGE__);
     my $a = $p->addr;
     unshift(@pos, $a) if defined $a;
-    $p = $p->parent;
+    $p = $pp;
   }
   @pos;
 }
@@ -82,17 +81,15 @@ sub push_depth {
 sub clone {
   # Clone HTML::Element style trees.
   # Clone self unless told otherwise.
-  # Cloning comes in handy when distributing methods
-  # such as push_content - you don't want the same
-  # HTML::Element tree across multiple nodes, just
-  # a copy of it - since HTML::Element nodes only
+  # Cloning comes in handy when distributing methods such as
+  # push_content - you don't want the same HTML::Element tree across
+  # multiple nodes, just a copy of it - since HTML::Element nodes only
   # recognize one parent.
   #
-  # Note: The new cloning functionality of HTML::Element is
-  # insufficent for our purposes. Syntax aside, the native
-  # clone() does not clone the element globs associated with
-  # a table...the globs continue to affect the original element
-  # structure.
+  # Note: The new cloning functionality of HTML::Element is insufficent
+  #       for our purposes. Syntax aside, the native clone() does not
+  #       clone the element globs associated with a table...the globs
+  #       continue to affect the original element structure.
   my $self = shift;
   my @args = @_;
 
@@ -108,14 +105,14 @@ sub clone {
     _cloning($VAR1, 0);
     # Retie the watchdogs
     $VAR1->traverse(sub {
-		      my($node, $startflag) = @_;
-		      return unless $startflag;
-		      if ($node->can('watchdog')) {
-			$node->watchdog(1);
-			$node->watchdog->mask(1) if $node->mask;
-		      }
-		      1;
-		    }, 'ignore_text') if ref $VAR1;
+                      my($node, $startflag) = @_;
+                      return unless $startflag;
+                      if ($node->can('watchdog')) {
+                        $node->watchdog(1);
+                        $node->watchdog->mask(1) if $node->mask;
+                      }
+                      1;
+                    }, 'ignore_text') if ref $VAR1;
     push(@clones, $VAR1);
   }
   $#clones ? @clones : $clones[0];
@@ -129,19 +126,19 @@ sub _cloning {
   if (@_) {
     if ($_[0]) {
       $node->traverse(sub {
-			my($node, $startflag) = @_;
-			return unless $startflag;
-			$node->_clone_state(1) if $node->can('_clone_state');
-			1;
-		      }, 'ignore_text');
+                        my($node, $startflag) = @_;
+                        return unless $startflag;
+                        $node->_clone_state(1) if $node->can('_clone_state');
+                        1;
+                      }, 'ignore_text');
     }
     else {
       $node->traverse(sub {
-			my($node, $startflag) = @_;
-			return unless $startflag;
-			$node->_clone_state(0) if $node->can('_clone_state');
-			1;
-		      }, 'ignore_text');      
+                        my($node, $startflag) = @_;
+                        return unless $startflag;
+                        $node->_clone_state(0) if $node->can('_clone_state');
+                        1;
+                      }, 'ignore_text');      
     }
   }
   $node->can('watchdog') && $node->watchdog ? $node->watchdog->cloning : 0;
@@ -169,26 +166,26 @@ sub _clone_state {
 sub mask {
   my($self, $mode) = @_;
   if (defined $mode) {
-    # We count modes since masking can come from overlapping
-    # influences, theoretically.
+    # We count modes since masking can come from overlapping influences,
+    # theoretically.
     if ($mode) {
       if (! $self->{_mask}) {
-	# deactivate (mask) content
-	$self->watchdog(1) unless $self->watchdog;
-	$self->watchdog->mask(1);
+        # deactivate (mask) content
+        $self->watchdog(1) unless $self->watchdog;
+        $self->watchdog->mask(1);
       }
       ++$self->{_mask};
     }
     else {
       --$self->{_mask} unless $self->{_mask} <= 0;
       if (! $self->{_mask}) {
-	# activate (unmask) content
-	if ($self->watchdog_listref) {
-	  $self->watchdog->mask(0);
-	}
-	else {
-	  $self->watchdog(0);
-	}
+        # activate (unmask) content
+        if ($self->watchdog_listref) {
+          $self->watchdog->mask(0);
+        }
+        else {
+          $self->watchdog(0);
+        }
       }
     }
   }
@@ -208,12 +205,12 @@ sub endtag {
 }
 
 # Oh, the horror! This used to be all that was necessary to implement
-# masking -- overriding traverse.  But the new HTML::Element does
-# NOT call traverse on a per-element basis, so now when we're masked
-# we have to play dead -- no tags, no content. To make matters worse,
-# we can't just override the content method because the
-# new traverse() implentation is playing directly wiht the data
-# structures rather than calling content().
+# masking -- overriding traverse. But the new HTML::Element does NOT
+# call traverse on a per-element basis, so now when we're masked we have
+# to play dead -- no tags, no content. To make matters worse, we can't
+# just override the content method because the new traverse()
+# implentation is playing directly wiht the data structures rather than
+# calling content().
 #
 # See below for the current solution: HTML::ElementSuper::TiedContent
 #
@@ -287,10 +284,10 @@ sub watchdog {
       # Install the watchdog hash
       my $wa = shift;
       if (ref $wa eq 'ARRAY') {
-	$self->watchdog_listref($wa);
+        $self->watchdog_listref($wa);
       }
       else {
-	$wa = $self->watchdog_listref;
+        $wa = $self->watchdog_listref;
       }
       my $cr = $self->content;
       my @content = @$cr;
