@@ -5,7 +5,7 @@ use vars qw($VERSION $AUTOLOAD);
 
 use HTML::ElementSuper;
 
-$VERSION = '1.04';
+$VERSION = '1.09';
 
 ####################################################
 # glob_* methods do the HTML::Element type methods #

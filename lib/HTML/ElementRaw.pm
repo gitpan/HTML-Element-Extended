@@ -12,7 +12,7 @@ require HTML::Element;
 
 @ISA = qw(HTML::Element);
 
-$VERSION = '1.00';
+$VERSION = '1.09';
 
 # Whole lotta overrides
 #

@@ -8,7 +8,7 @@ use HTML::ElementGlob;
 
 @ISA = qw(HTML::ElementTable::Element);
 
-$VERSION = '1.03';
+$VERSION = '1.09';
 
 # Enforced adoption policy such that positional coords are untainted.
 my @Valid_Children = qw( HTML::ElementTable::RowElement );
@@ -336,6 +336,10 @@ sub new {
   }
   my $self = $class->SUPER::new('table', %e_attrs);
   bless $self,$class;
+
+  # Default to single cell
+  $maxrow = 0 unless defined $maxrow;
+  $maxcol = 0 unless defined $maxcol;
 
   # Content police for aggregate integrity
   $self->watchdog(\@Valid_Children);
@@ -844,6 +848,9 @@ software; you can redistribute it and/or modify it under the
 same terms as Perl itself.
 
 =head1 SEE ALSO
+
+A useful page of HTML::ElementTable examples can be found at
+http://www.mojotoad.com/sisk/projects/HTML-Element-Extended/examples.html.
 
 HTML::ElementSuper(3), HTML::ElementGlob(3), HTML::Element(3), perl(1).
 

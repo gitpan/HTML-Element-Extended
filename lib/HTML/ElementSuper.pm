@@ -16,7 +16,7 @@ use HTML::Element;
 
 @ISA = qw(HTML::Element);
 
-$VERSION = '1.04';
+$VERSION = '1.09';
 
 ### Begin Positional extension ###
 
@@ -25,11 +25,17 @@ sub addr {
   my $p = $self->parent;
   return undef unless $p;
   my @sibs = $p->content_list;
+  # For unknown reasons, at least on Solaris, a simple 'return $_'
+  # does not work from within the foreach loop. I have no idea why,
+  # but here's the clunky workaround.
   my $a;
   foreach (0..$#sibs) {
-    return $_ if $sibs[$_] eq $self;
+    if ($sibs[$_] eq $self) {
+      $a = $_;
+      last;
+    }
   }
-  undef;
+  $a;
 }
 
 sub position {

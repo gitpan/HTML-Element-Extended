@@ -1,5 +1,8 @@
 Revision history for Perl extension HTML-Element-Extended.
 
+1.09  Fri Nov 10 02:21:30 CST 2000
+	- Various bugs and warnings fixed.
+
 1.08  Tue May  2 15:03:15 CDT 2000
 	- clone() bug fix regarding text vs ref on first node.
 	- adapted glob class to use content_list() rather than
