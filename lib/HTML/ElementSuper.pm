@@ -12,11 +12,14 @@ use vars qw($VERSION @ISA $AUTOLOAD);
 use Carp;
 use Data::Dumper;
 
-use HTML::Element;
+# Make sure we have access to the new methods. These were added
+# sometime in early 2000 but we'll just anchor off of the new
+# numbering system.
+use HTML::Element 3.01;
 
 @ISA = qw(HTML::Element);
 
-$VERSION = '1.10';
+$VERSION = '1.11';
 
 ### Begin Positional extension ###
 
@@ -307,9 +310,10 @@ sub watchdog {
       # Release the watchdog
       my @content = $self->{_wd}->fetchall; # in case it's masked
       my $cr = $self->content;
+      # Delete obj ref before untie in order to hush -w
+      delete $self->{_wd};
       untie @$cr;
       @$cr = @content;
-      delete $self->{_wd};
     }
   }
   $self->{_wd};
@@ -632,7 +636,7 @@ Matthew P. Sisk, E<lt>F<sisk@mojotoad.com>E<gt>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2000 Matthew P. Sisk.
+Copyright (c) 1998-2002 Matthew P. Sisk.
 All rights reserved. All wrongs revenged. This program is free
 software; you can redistribute it and/or modify it under the
 same terms as Perl itself.

@@ -1,5 +1,9 @@
 Revision history for Perl extension HTML-Element-Extended.
 
+1.11  Tue Apr  2 08:37:42 CST 2002
+	- Added some version dependencies on prereq modules
+	- More -w cleanup (tie/ref dep)
+
 1.10  Mon Jan  8 19:29:59 CST 2001
 	- Maintenance release (-w cleanup)
 

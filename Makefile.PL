@@ -9,7 +9,8 @@ WriteMakefile(
 	      VERSION_FROM => 'lib/HTML/ElementTable.pm',
 	      dist         => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
 	      PREREQ_PM    => {
-				HTML::Element => 0,
+				# Avoid older HTML::Element w/o new methods
+				HTML::Element => 3.01,
 				Data::Dumper  => 0,
 			      }
 	     );
