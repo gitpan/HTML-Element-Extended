@@ -8,7 +8,7 @@ use HTML::ElementGlob;
 
 @ISA = qw(HTML::ElementTable::Element);
 
-$VERSION = '1.13';
+$VERSION = '1.14';
 
 # Enforced adoption policy such that positional coords are untainted.
 my @Valid_Children = qw( HTML::ElementTable::RowElement );
@@ -273,11 +273,11 @@ sub colspan_dispatch {
 sub _dimspan_dispatch {
   # Dispatch for children to use to send notice of span changes, in rows
   # or columns.
-  my($self,$attr,$row,$col,$span) = @_;
+  my($self, $attr, $row, $col, $span) = @_;
   defined $row && defined $col || croak "Cell row and column required";
   defined $span || croak "Span setting required";
   my $orth_attr = $attr eq 'colspan' ? 'rowspan' : 'colspan';
-  $span    = 1 unless $span;
+  $span  = 1 unless $span;
   my $oldspan = $self->cell($row,$col)->attr($attr);
   $oldspan = 1 unless $oldspan;
   return if $span == $oldspan;
@@ -358,21 +358,70 @@ sub new {
 sub new_from_tree {
   # takes a regular HTML::Element table tree structure and reblesses and
   # configures it into an HTML::ElementTable structure.
+  #
+  # Dealing with row and column span issues properly is a real PITA, so
+  # we cheat here a little bit by creating a new table structure with
+  # fully rendered spans and use that as a template for normalizing the
+  # old table.
   my($class, $tree) = @_;
   ref $tree or croak "Ref to element tree required.\n";
   $tree->tag eq 'table' or croak "element tree should represent a table.\n";
-  foreach my $row ($tree->content_list) {
-    next unless ref $row && $row->tag eq 'tr';
-    foreach my $cell ($row->content_list) {
-      next unless ref $cell && $cell->tag eq 'td' || $cell->tag eq 'tr';
-      bless $cell, 'HTML::ElementTable::DataElement';
+
+  # First get rid of non elements -- note this WILL zap comments within
+  # the html of the table structure (i.e. in between adjacent tr tags or
+  # td/th tags). While we're at it, determine dimensions.
+  my($maxrow, $maxcol) = (-1, -1);
+  my @rows;
+  foreach my $row ($tree->detach_content) {
+    if (UNIVERSAL::isa($row, 'HTML::Element') && $row->tag eq 'tr') {
+      ++$maxrow;
+      my @cells;
+      foreach my $cell ($row->detach_content) {
+        if (UNIVERSAL::isa($cell, 'HTML::Element') &&
+            ($cell->tag eq 'td' || $cell->tag eq 'th')) {
+          push(@cells, $cell);
+        }
+      }
+      $row->push_content(@cells);
+      $maxcol = $#cells if $#cells > $maxcol;
+      push(@rows, $row);
     }
+  }
+  $tree->push_content(@rows);
+
+  # Create our template, match masks, splice masked cells into
+  # original context
+  my $template = $class->new(maxrow => $maxrow, maxcol => $maxcol, debug => 7);
+  my @template_rows = $template->content_list;
+  my @rows = $tree->content_list;
+  foreach my $r (0 .. $#rows) {
+    my $row = $rows[$r];
+    my @content = $row->detach_content;
+    my @template_content = $template_rows[$r]->content_list;
+    my @merged_content;
+    foreach my $c (0 .. $#template_content) {
+      my $template_cell = $template_content[$c];
+      if ($template_cell->mask) {
+        push(@merged_content, $template_cell);
+        next;
+      }
+      # register spans if present -- this ensures we get the dimensions
+      # correct for cells and rows following
+      my $cell = shift @content;
+      my $rspan = $cell->attr('rowspan') || 1;
+      my $cspan = $cell->attr('colspan') || 1;
+      $template_cell->attr('rowspan', $rspan) if $rspan > 1;
+      $template_cell->attr('colspan', $cspan) if $cspan > 1;
+      bless $cell, 'HTML::ElementTable::DataElement';
+      push(@merged_content, $cell);
+    }
+    $row->push_content(@merged_content);
     bless $row, 'HTML::ElementTable::RowElement';
   }
   bless $tree, 'HTML::ElementTable';
   $tree->_initialize_table;
   $tree->refresh;
-  $tree;
+  return $tree;
 }
 
 sub _initialize_table {

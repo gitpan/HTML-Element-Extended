@@ -7,3 +7,4 @@ lib/HTML/ElementSuper.pm
 lib/HTML/ElementGlob.pm
 lib/HTML/ElementTable.pm
 lib/HTML/ElementRaw.pm
+META.yml                                 Module meta-data (added by MakeMaker)

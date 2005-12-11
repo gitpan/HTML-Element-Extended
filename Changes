@@ -1,7 +1,12 @@
 Revision history for Perl extension HTML-Element-Extended.
 
+1.14  Sun Dec 11 04:01:53 EST 2005
+        - Revised new_from_tree() to properly handle row and column
+          span issues. Thanks to Mark L. Lott for debugging and
+          prodding.
+
 1.13  Mon Mar 28 15:14:12 EST 2005
-	- Fixed nasty content bug
+        - Fixed nasty content bug
 
 1.12  Wed Mar  9 02:30:10 EST 2005
         - Added new_from_tree() constructor which takes an HTML::Element
@@ -20,18 +25,15 @@ Revision history for Perl extension HTML-Element-Extended.
 
 1.08  Tue May  2 15:03:15 CDT 2000
         - clone() bug fix regarding text vs ref on first node.
-        - adapted glob class to use content_list() rather than
-          content()
+        - adapted glob class to use content_list() rather than content()
 
 1.07  Wed Apr 26 11:37:11 CDT 2000
-        - More stable content policing, used for
-          both table integrity and masking; new
-          content methods should automatically be
-          safe.
-        - Deprecated delete_attr(), since this can
-          now be addressed via attr($attr, undef).
-        - Syntactical cleanup, code fleecing.
-          Inherited constructors will work.
+        - More stable content policing, used for both table integrity
+          and masking; new content methods should automatically be safe.
+        - Deprecated delete_attr(), since this can now be addressed via
+          attr($attr, undef).
+        - Syntactical cleanup, code fleecing. Inherited constructors
+          will work.
 
 1.06  Tue Jan 25 20:05:05 CST 2000
 1.05    - Versioning for the sake of CPAN
