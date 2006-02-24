@@ -12,7 +12,7 @@ require HTML::Element;
 
 @ISA = qw(HTML::Element);
 
-$VERSION = '1.10';
+$VERSION = '1.11';
 
 # Whole lotta overrides
 #
@@ -23,7 +23,7 @@ $VERSION = '1.10';
 sub push_content {
   # Flatten elements into an HTML string if found,
   # otherwise just slap the text in.
-  my @text = map(ref $_ ? $_->as_HTML : $_, @_);
+  my @text = map(defined (ref $_ ? $_->as_HTML : $_) ? $_ : '', @_);
   shift->{_string}[0] .= join('',@text);
 }
 sub insert_element {

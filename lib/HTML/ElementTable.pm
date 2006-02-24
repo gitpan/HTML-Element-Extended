@@ -8,7 +8,7 @@ use HTML::ElementGlob;
 
 @ISA = qw(HTML::ElementTable::Element);
 
-$VERSION = '1.14';
+$VERSION = '1.15';
 
 # Enforced adoption policy such that positional coords are untainted.
 my @Valid_Children = qw( HTML::ElementTable::RowElement );
@@ -391,9 +391,9 @@ sub new_from_tree {
 
   # Create our template, match masks, splice masked cells into
   # original context
-  my $template = $class->new(maxrow => $maxrow, maxcol => $maxcol, debug => 7);
+  my $template = $class->new(maxrow => $maxrow, maxcol => $maxcol);
   my @template_rows = $template->content_list;
-  my @rows = $tree->content_list;
+  @rows = $tree->content_list;
   foreach my $r (0 .. $#rows) {
     my $row = $rows[$r];
     my @content = $row->detach_content;
@@ -787,10 +787,10 @@ will be initialized as well. See extent().
 =item new_from_tree($tree)
 
 Takes an existing top-level HTML::Element representing a table and
-converts the entire table structure into a cohesive
-HTML::ElementTable construct. (this is potentially useful if you want
-to use the power of this module for editing HTML tables in place
-within an HTML::Element tree).
+converts the entire table structure into a cohesive HTML::ElementTable
+construct. (this is potentially useful if you want to use the power of
+this module for editing HTML tables <em>in situ</em> within an
+HTML::Element tree).
 
 =back
 

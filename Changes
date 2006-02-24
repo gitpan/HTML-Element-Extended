@@ -1,5 +1,10 @@
 Revision history for Perl extension HTML-Element-Extended.
 
+1.15  Fri Feb 24 15:34:13 EST 2006
+        - Fixed some scoping issues ('my' collisions)
+        - Fixed some undef issues running under -w (thanks to Carl
+          Franks)
+
 1.14  Sun Dec 11 04:01:53 EST 2005
         - Revised new_from_tree() to properly handle row and column
           span issues. Thanks to Mark L. Lott for debugging and
