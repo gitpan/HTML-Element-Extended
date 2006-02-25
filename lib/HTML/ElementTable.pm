@@ -8,7 +8,7 @@ use HTML::ElementGlob;
 
 @ISA = qw(HTML::ElementTable::Element);
 
-$VERSION = '1.15';
+$VERSION = '1.16';
 
 # Enforced adoption policy such that positional coords are untainted.
 my @Valid_Children = qw( HTML::ElementTable::RowElement );
@@ -372,8 +372,18 @@ sub new_from_tree {
   # td/th tags). While we're at it, determine dimensions.
   my($maxrow, $maxcol) = (-1, -1);
   my @rows;
-  foreach my $row ($tree->detach_content) {
-    if (UNIVERSAL::isa($row, 'HTML::Element') && $row->tag eq 'tr') {
+  my @content = reverse $tree->detach_content;
+  while (@content) {
+    my $row = pop @content;
+    next unless UNIVERSAL::isa($row, 'HTML::Element');
+    my $tag = $row->tag;
+    # hack around tbody, thead, tfoot - yes, this means they get
+    # stripped out of the resulting table
+    if ($tag eq 'tbody' || $tag eq 'thead' || $tag eq 'tfoot') {
+      push(@content, reverse $row->detach_content);
+      next;
+    }
+    if ($tag eq 'tr') {
       ++$maxrow;
       my @cells;
       foreach my $cell ($row->detach_content) {
