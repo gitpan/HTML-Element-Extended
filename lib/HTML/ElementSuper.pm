@@ -18,7 +18,7 @@ use HTML::Element 3.01;
 
 @ISA = qw(HTML::Element);
 
-$VERSION = '1.13';
+$VERSION = '1.14';
 
 ### Begin Positional extension ###
 
@@ -202,6 +202,18 @@ sub endtag {
   my $self = shift;
   return '' if $self->mask;
   $self->SUPER::endtag(@_);
+}
+
+sub starttag_XML {
+  my $self = shift;
+  return '' if $self->mask;
+  $self->SUPER::starttag_XML(@_);
+}
+
+sub endtag_XML {
+  my $self = shift;
+  return '' if $self->mask;
+  $self->SUPER::endtag_XML(@_);
 }
 
 # Oh, the horror! This used to be all that was necessary to implement
@@ -625,7 +637,7 @@ Matthew P. Sisk, E<lt>F<sisk@mojotoad.com>E<gt>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2005 Matthew P. Sisk. All rights reserved. All wrongs
+Copyright (c) 1998-2006 Matthew P. Sisk. All rights reserved. All wrongs
 revenged. This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 

@@ -1,5 +1,11 @@
 Revision history for Perl extension HTML-Element-Extended.
 
+1.17  Wed May  3 16:52:03 EDT 2006
+        - new_from_tree() uses a better rasterizer now, properly
+          handling even more tortuous span issues. Thanks to Roland
+          Schar.
+        - Fixed as_XML rendering Thanks to Roger Crew.
+
 1.16  Sat Feb 25 12:41:57 EST 2006
         - Fixed new_from_tree() to handle (ignore) tbody, thead and
           tfoot tags. Otherwise rows were ignored.

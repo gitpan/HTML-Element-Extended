@@ -8,7 +8,9 @@ use HTML::ElementGlob;
 
 @ISA = qw(HTML::ElementTable::Element);
 
-$VERSION = '1.16';
+$VERSION = '1.17';
+
+my $DEBUG = 0;
 
 # Enforced adoption policy such that positional coords are untainted.
 my @Valid_Children = qw( HTML::ElementTable::RowElement );
@@ -378,7 +380,7 @@ sub new_from_tree {
     next unless UNIVERSAL::isa($row, 'HTML::Element');
     my $tag = $row->tag;
     # hack around tbody, thead, tfoot - yes, this means they get
-    # stripped out of the resulting table
+    # stripped out of the resulting table tree
     if ($tag eq 'tbody' || $tag eq 'thead' || $tag eq 'tfoot') {
       push(@content, reverse $row->detach_content);
       next;
@@ -392,45 +394,58 @@ sub new_from_tree {
           push(@cells, $cell);
         }
       }
-      $row->push_content(@cells);
       $maxcol = $#cells if $#cells > $maxcol;
+      $row->push_content(@cells);
       push(@rows, $row);
     }
   }
   $tree->push_content(@rows);
 
-  # Create our template, match masks, splice masked cells into
-  # original context
-  my $template = $class->new(maxrow => $maxrow, maxcol => $maxcol);
-  my @template_rows = $template->content_list;
+  # Rasterize the tree table into a grid template -- use that as a guide
+  # to flesh out our new H::ET
+  eval "use HTML::TableExtract 2.08 qw(tree)";
+  croak "Problem loading HTML::TableExtract : $@\n" if $@;
+  my $rasterizer = HTML::TableExtract::Rasterize->make_rasterizer;
   @rows = $tree->content_list;
   foreach my $r (0 .. $#rows) {
     my $row = $rows[$r];
-    my @content = $row->detach_content;
-    my @template_content = $template_rows[$r]->content_list;
-    my @merged_content;
-    foreach my $c (0 .. $#template_content) {
-      my $template_cell = $template_content[$c];
-      if ($template_cell->mask) {
-        push(@merged_content, $template_cell);
+    foreach my $cell ($row->content_list) {
+      my $rowspan = $cell->attr('rowspan') || 1;
+      my $colspan = $cell->attr('colspan') || 1;
+      $rasterizer->($r, $rowspan, $colspan);
+    }
+  }
+  my $grid = $rasterizer->();
+
+  # Flesh out the tree structure, inserting masked cells where
+  # appropriate
+  foreach my $r (0 .. $#$grid) {
+    my $row = $rows[$r];
+    my $grid_row = $grid->[$r];
+    my $content = $row->content_array_ref;
+    print STDERR "Flesh row $r ($#$content) to $#$grid_row\n" if $DEBUG;
+    foreach my $c (0 .. $#$grid_row) {
+      my $cell = $content->[$c];
+      print STDERR $grid_row->[$c] ? '1' : '0' if $DEBUG;
+      if ($grid_row->[$c]) {
+        bless $cell, 'HTML::ElementTable::DataElement';
         next;
       }
-      # register spans if present -- this ensures we get the dimensions
-      # correct for cells and rows following
-      my $cell = shift @content;
-      my $rspan = $cell->attr('rowspan') || 1;
-      my $cspan = $cell->attr('colspan') || 1;
-      $template_cell->attr('rowspan', $rspan) if $rspan > 1;
-      $template_cell->attr('colspan', $cspan) if $cspan > 1;
-      bless $cell, 'HTML::ElementTable::DataElement';
-      push(@merged_content, $cell);
+      else {
+        my $masked = HTML::ElementTable::DataElement->new;
+        $masked->mask(1);
+        $row->splice_content($c, 0, $masked);
+      }
     }
-    $row->push_content(@merged_content);
+    print STDERR "\n" if $DEBUG;
+    croak "row $r splice mismatch: $#$content vs $#$grid_row\n"
+      unless $#$content == $#$grid_row;
     bless $row, 'HTML::ElementTable::RowElement';
   }
   bless $tree, 'HTML::ElementTable';
   $tree->_initialize_table;
   $tree->refresh;
+  print $tree->as_HTML, "\n" if $DEBUG > 1;
   return $tree;
 }
 
@@ -799,7 +814,7 @@ will be initialized as well. See extent().
 Takes an existing top-level HTML::Element representing a table and
 converts the entire table structure into a cohesive HTML::ElementTable
 construct. (this is potentially useful if you want to use the power of
-this module for editing HTML tables <em>in situ</em> within an
+this module for editing HTML tables I<in situ> within an
 HTML::Element tree).
 
 =back
@@ -949,7 +964,7 @@ Thanks to William R. Ward for some conceptual nudging.
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2005 Matthew P. Sisk. All rights reserved. All wrongs
+Copyright (c) 1998-2006 Matthew P. Sisk. All rights reserved. All wrongs
 revenged. This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
@@ -958,6 +973,6 @@ modify it under the same terms as Perl itself.
 A useful page of HTML::ElementTable examples can be found at
 http://www.mojotoad.com/sisk/projects/HTML-Element-Extended/examples.html.
 
-HTML::ElementSuper(3), HTML::ElementGlob(3), HTML::Element(3), perl(1).
+HTML::ElementSuper(3), HTML::ElementGlob(3), HTML::Element(3), HTML::TableExtract(3), perl(1).
 
 =cut
