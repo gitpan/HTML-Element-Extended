@@ -18,9 +18,28 @@ use HTML::Element 3.01;
 
 @ISA = qw(HTML::Element);
 
-$VERSION = '1.14';
+$VERSION = '1.18';
 
-### Begin Positional extension ###
+### attr extension ###
+
+sub push_attr {
+  my $self = shift;
+  my($attr, @new) = @_;
+  my(%seen, @vals);
+  if (defined(my $spec = $self->attr($attr))) {
+    for my $v (split(/\s+/, $spec)) {
+      next if $seen{$v};
+      push(@vals, $seen{$v} = $v);
+    }
+  }
+  for my $v (grep { defined $_ } @new) {
+    next if $seen{$v};
+    push(@vals, $seen{$v} = $v);
+  }
+  $self->SUPER::attr($attr, join(' ', @vals));
+}
+
+### positional extension ###
 
 sub addr {
   my $self = shift;
@@ -30,7 +49,7 @@ sub addr {
   foreach my $i (0..$#sibs) {
     return $i if defined $sibs[$i] && $sibs[$i] eq $self;
   }
-  croak "major oops, no addr found for $self\n";
+  Carp::confess "major oops, no addr found for $self\n";
 }
 
 sub position {
@@ -73,10 +92,7 @@ sub push_depth {
   $self->push_content('(' . $self->depth . ')');
 }
 
-### End Positional extension ###
-
-
-### Begin Cloner extension ###
+### cloner extension ###
 
 sub clone {
   # Clone HTML::Element style trees.
@@ -159,9 +175,7 @@ sub _clone_state {
 }
 
 
-### End Cloner extension ###
-
-### Begin Maskable extension ###
+### maskable extension ###
 
 sub mask {
   my($self, $mode) = @_;
@@ -252,9 +266,7 @@ sub endtag_XML {
 #  $self->SUPER::traverse(@_);
 #}
 
-### End Maskable extension ###
-
-### Begin Replacer extension ###
+### replacer extension ###
 
 sub replace_content {
   my $self = shift;
@@ -262,9 +274,7 @@ sub replace_content {
   $self->push_content(@_);
 }
 
-### End Replacer extension ###
-
-### Begin Wrapper extension ###
+### wrapper extension ###
 
 sub wrap_content {
   my($self, $wrap) = @_;
@@ -279,10 +289,7 @@ sub wrap_content {
   $wrap;
 }
 
-### End Wrapper extension ###
-
-
-### Begin Watchdog extension ###
+### watchdog extension ###
 
 sub watchdog_listref {
   my $self = shift;
@@ -321,7 +328,7 @@ sub watchdog {
   $self->{_wd};
 }
 
-### End Watchdog extension ###
+###
 
 sub new {
   my $that = shift;
@@ -333,7 +340,7 @@ sub new {
   $self;
 }
 
-### Deprecated methods ###
+### deprecated ###
 
 sub delete_attr {
   # Deprecated by new HTML::Element functionality. Should now use
@@ -346,17 +353,17 @@ sub delete_attr {
   $old;
 }
 
-### Temporary Overrides (until bugs fixed in HTML::Element) ###
+### temporary Overrides (until bugs fixed in HTML::Element) ###
 
 sub replace_with {
   my $self = shift;
   my $p = $self->parent;
   $self->SUPER::replace_with(@_);
-  grep($_->parent($p), @_);
+  grep { $_->parent($p) } @_;
   $self;
 }
 
-### Bag o kludgy tricks ###
+### bag o kludgy tricks ###
 
 {
   package HTML::ElementSuper::ContentWatchdog;
@@ -559,6 +566,7 @@ HTML::ElementSuper has the following additional properties:
    * mask itself so that it and its descendants are invisible to
      traverse()
    * clone itself and other HTML::Element based object trees
+   * handle multiple values for attributes
 
 Note that these extensions were originally developed to assist in
 implementing the HTML::ElementTable(3) class, but were thought to be of
@@ -572,6 +580,13 @@ general enough utility to warrant their own package.
 
 Return a new HTML::ElementSuper object. Exactly like the constructor for
 HTML::Element(3), takes a tag type and optional attributes.
+
+=item push_attr(attr => @values)
+
+Extend the value string for a particular attribute. An example of this
+might be when you'd like to assign multiple CSS classes to a single
+element. The attribute value is extended using white space as a
+separator.
 
 =item addr()
 
@@ -637,7 +652,7 @@ Matthew P. Sisk, E<lt>F<sisk@mojotoad.com>E<gt>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2006 Matthew P. Sisk. All rights reserved. All wrongs
+Copyright (c) 1998-2010 Matthew P. Sisk. All rights reserved. All wrongs
 revenged. This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 

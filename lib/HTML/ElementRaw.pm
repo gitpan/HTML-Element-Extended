@@ -12,7 +12,7 @@ require HTML::Element;
 
 @ISA = qw(HTML::Element);
 
-$VERSION = '1.11';
+$VERSION = '1.18';
 
 # Whole lotta overrides
 #
@@ -94,7 +94,7 @@ Matthew P. Sisk, E<lt>F<sisk@mojotoad.com>E<gt>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2006 Matthew P. Sisk.
+Copyright (c) 1998-2010 Matthew P. Sisk.
 All rights reserved. All wrongs revenged. This program is free
 software; you can redistribute it and/or modify it under the
 same terms as Perl itself.

@@ -5,7 +5,7 @@ use vars qw($VERSION $AUTOLOAD);
 
 use HTML::ElementSuper;
 
-$VERSION = '1.10';
+$VERSION = '1.18';
 
 ####################################################
 # glob_* methods do the HTML::Element type methods #
@@ -112,7 +112,7 @@ sub AUTOLOAD {
   if ($name =~ s/^glob_//) {
     # First, indicate to other globs that subsequent method
     # calls are glob_ induced.
-    foreach (grep(ref $_ eq ref $self, @_)) {
+    foreach (grep { ref $_ eq ref $self } @_) {
       $_->context_is_glob(1);
     }
     # Store the pedigree of all elements, including globs,
@@ -124,17 +124,22 @@ sub AUTOLOAD {
     # is no publicly available method for just dropping
     # a parent, and I'm loathe to mess with internal state
     # variables and break containment on HTML::Element)
+    my @result;
     my %parents;
-    foreach (grep(ref $_->parent, grep(ref $_, @_))) {
+    for (grep { ref $_->parent } grep { ref $_ } @_) {
+      next if $parents{$_};
       $parents{$_} = $_->parent;
       $_->parent($self->{_babysitter});
     }
     # Invoke the method on our internal element
-    my @result = $self->{_element}->$name(@_);
+    @result = $self->{_element}->$name(@_);
     # Restore the lineages.
-    grep($_->parent($parents{$_}), grep(ref $_, @_));
+
+    for (grep { ref $_ } @_) {
+      $_->parent(delete $parents{$_}) if $parents{$_};
+    }
     # Cancel glob_ induced context.
-    foreach (grep(ref $_ eq ref $self, @_)) {
+    foreach (grep { ref $_ eq ref $self } @_) {
       $_->context_is_glob(0);
     }
     return wantarray ? @result : $result[$#result];
@@ -151,8 +156,7 @@ sub AUTOLOAD {
   # Otherwise broadcast to component elements.
   if (!$self->{_element}->is_empty) {
     my @results;
-    foreach ($self->{_element}->content_list) {
-      next unless ref;
+    foreach (grep { ref $_ } $self->{_element}->content_list) {
       push(@results, $_->$name(@_));
     }
     return @results;
@@ -229,7 +233,7 @@ Matthew P. Sisk, E<lt>F<sisk@mojotoad.com>E<gt>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2002 Matthew P. Sisk.
+Copyright (c) 1998-2010 Matthew P. Sisk.
 All rights reserved. All wrongs revenged. This program is free
 software; you can redistribute it and/or modify it under the
 same terms as Perl itself.

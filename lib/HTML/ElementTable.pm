@@ -8,7 +8,7 @@ use HTML::ElementGlob;
 
 @ISA = qw(HTML::ElementTable::Element);
 
-$VERSION = '1.17';
+$VERSION = '1.18';
 
 my $DEBUG = 0;
 
@@ -36,7 +36,7 @@ sub extent {
     push(@rows, $_) if ref && $_->tag eq 'tr';
   }
   if ($maxcol != $self->maxcol) {
-    grep($self->_adjust_content($_, $maxcol, $self->maxcol), @rows);
+    grep { $self->_adjust_content($_, $maxcol, $self->maxcol) } @rows;
   }
 
   # New data cells caused by new rows will be automatically taken care
@@ -55,9 +55,9 @@ sub refresh {
   # of cells.
   
   # Clear old row and column globs
-  grep($_->glob_delete_content,@{$self->_rows->glob_content})
+  grep { $_->glob_delete_content } @{$self->_rows->glob_content}
     unless $self->_rows->glob_is_empty;
-  grep($_->glob_delete_content,@{$self->_cols->glob_content})
+  grep { $_->glob_delete_content } @{$self->_cols->glob_content}
     unless $self->_cols->glob_is_empty;
   $self->_rows->glob_delete_content;
   $self->_cols->glob_delete_content;
@@ -99,7 +99,7 @@ sub _adjust_content {
   ref $e or croak "Element required";
   defined $limit or croak "Index limit required";
   if (!defined $old) {
-    grep(++$old,@{$e->content});
+    grep { ++$old } @{$e->content};
   }
   if ($limit < $old) {
     # We are trimming
@@ -174,7 +174,7 @@ sub cell {
 sub row {
   my $self = shift;
   @_ || croak "Index required";
-  my @out = grep($_ > $self->maxrow,@_);
+  my @out = grep { $_ > $self->maxrow } @_;
   croak "Rows(@out) out of range" if @out;
   @_ > 1 ? $self->_rowglob(@{$self->_rows->glob_content}[@_])
     : $self->_rows->glob_content->[$_[0]];
@@ -183,7 +183,7 @@ sub row {
 sub col {
   my $self = shift;
   @_ || croak "Index required";
-  my @out = grep($_ > $self->maxcol,@_);
+  my @out = grep { $_ > $self->maxcol } @_;
   if (@out) {
     croak "Columns(" . join(',', @out) . ") out of range";
   }
@@ -524,26 +524,28 @@ use vars qw( @ISA $AUTOLOAD );
 ####################
 
 sub attr {
-  # Keep tabs on COLSPAN and ROWSPAN
-  my $self = shift;
-  my $attr = lc $_[0];
-  my $val  = $_[1] if @_ >= 2;
-  if (defined $val) {
-    if ($attr eq 'colspan') {
-      $self->parent->colspan_dispatch($self->addr, $val);
-    } 
-    elsif ($attr eq 'rowspan') {
-      $self->parent->rowspan_dispatch($self->addr, $val);
+  # Keep tabs on colspan and rowspan
+  my($self, $attr) = splice(@_, 0, 2);
+  $attr = lc $attr;
+  if (@_) {
+    my $val = $_[0];
+    if (defined $val) {
+      if ($attr eq 'colspan') {
+        $self->parent->colspan_dispatch($self->addr, $val);
+      }
+      elsif ($attr eq 'rowspan') {
+        $self->parent->rowspan_dispatch($self->addr, $val);
+      }
+    }
+    else {
+      # Deleting an attr
+      if ($attr eq 'colspan' || $attr eq 'rowspan') {
+        # Make sure and dispatch zero value
+        $self->attr($attr, 0);
+      }
     }
   }
-  elsif (@_ >= 2) {
-    # Deleting an attr
-    if ($attr eq 'colspan' || $attr eq 'rowspan') {
-      # Make sure and dispatch zero value
-      $self->attr($attr, 0);
-    }   
-  }
-  $self->SUPER::attr(@_);
+  $self->SUPER::attr($attr, @_);
 }
 
 sub blank_fill {
@@ -684,7 +686,7 @@ use HTML::ElementGlob;
 
 # Designate attributes that are valid for <TR> tags.
 my %TR_ATTRS;
-grep(++$TR_ATTRS{$_},qw( align valign bgcolor ));
+grep { ++$TR_ATTRS{$_} } qw( id class align valign bgcolor );
 
 sub alias {
   # alias() allows us to designate an actual row element that contains
@@ -699,10 +701,9 @@ sub alias {
 }
 
 sub attr {
-  # Catch the optimization opportunities.
+  # alias intercept
   my $self = shift;
   if ($self->alias && $TR_ATTRS{lc $_[0]}) {
-    $self->SUPER::attr(@_);
     return $self->alias->attr(@_);
   }
   $self->SUPER::attr(@_);
@@ -964,7 +965,7 @@ Thanks to William R. Ward for some conceptual nudging.
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2006 Matthew P. Sisk. All rights reserved. All wrongs
+Copyright (c) 1998-2010 Matthew P. Sisk. All rights reserved. All wrongs
 revenged. This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
